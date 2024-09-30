@@ -139,6 +139,17 @@ func main() {
 		}
 	}
 
+	if os.Getenv("ENV") == "production" {
+		log.Printf("installing browsers...\n")
+		err := playwright.Install()
+
+		if err != nil {
+			log.Fatalf("could not install browsers: %v", err)
+		}
+
+		log.Printf("browsers installed successfully\n")
+	}
+
 	db, err = sql.Open("libsql", os.Getenv("DB_URL"))
 	if err != nil {
 		log.Fatalf("failed to open db: %s", err)
