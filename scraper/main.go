@@ -47,6 +47,8 @@ func randomPage() ([]OLXAd, error) {
 	}
 
 	url := urls[rand.Intn(len(urls))]
+	log.Printf("scraping page %s", url)
+
 	now := time.Now()
 
 	filename := fmt.Sprintf("/tmp/olx-%s.html", now)
@@ -183,6 +185,11 @@ func main() {
 			ads, err := randomPage()
 			if err != nil {
 				log.Printf("could not fetch ads: %v\n", err)
+				continue
+			}
+
+			if len(ads) == 0 {
+				log.Printf("no ads found")
 				continue
 			}
 
