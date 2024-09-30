@@ -23,7 +23,7 @@ var db *sql.DB
 type OLXAd struct {
 	Title    string `json:"title"`
 	Image    string `json:"image"`
-	Price    string `json:"price"`
+	Price    int    `json:"price"`
 	Location string `json:"location"`
 }
 
@@ -112,9 +112,19 @@ func randomPage() ([]OLXAd, error) {
 	c.WithTransport(t)
 
 	c.OnHTML(".olx-ad-card", func(e *colly.HTMLElement) {
+		price := e.ChildText(".olx-ad-card__price")
+		price = strings.TrimLeft(price, "R$ ")
+		price = strings.ReplaceAll(price, ".", "")
+
+		priceInt, err := strconv.Atoi(price)
+		if err != nil {
+			log.Printf("could not parse price: %s", err)
+			return
+		}
+
 		ads = append(ads, OLXAd{
 			Title:    e.ChildText(".olx-ad-card__title"),
-			Price:    e.ChildText(".olx-ad-card__price"),
+			Price:    priceInt,
 			Location: e.ChildTexts(".olx-ad-card__location-date-container>p")[0],
 			Image:    e.ChildAttr(`source[type="image/jpeg"]`, "srcset"),
 		})
