@@ -33,8 +33,6 @@ func randomPage() ([]OLXAd, error) {
 	urls := []string{
 		"https://www.olx.com.br/eletronicos-e-celulares",
 		"https://www.olx.com.br/para-a-sua-casa",
-		"https://www.olx.com.br/autos-e-pecas",
-		"https://www.olx.com.br/imoveis",
 		"https://www.olx.com.br/eletro",
 		"https://www.olx.com.br/moveis",
 		"https://www.olx.com.br/esportes-e-lazer",
