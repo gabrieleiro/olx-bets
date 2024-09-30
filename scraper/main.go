@@ -21,9 +21,9 @@ import (
 var db *sql.DB
 
 type OLXAd struct {
-	Title string `json:"title"`
-	Image string `json:"image"`
-	Price string `json:"price"`
+	Title    string `json:"title"`
+	Image    string `json:"image"`
+	Price    string `json:"price"`
 	Location string `json:"location"`
 }
 
@@ -73,11 +73,11 @@ func randomPage() ([]OLXAd, error) {
 		return ads, err
 	}
 
- 	page, err := ctx.NewPage()
-  	if err != nil {
-   		log.Printf("could not create new browser tab\n")
-     	return ads, err
-   	}
+	page, err := ctx.NewPage()
+	if err != nil {
+		log.Printf("could not create new browser tab\n")
+		return ads, err
+	}
 
 	if _, err := page.Goto(url); err != nil {
 		log.Printf("could not go to %s\n", url)
@@ -113,10 +113,10 @@ func randomPage() ([]OLXAd, error) {
 
 	c.OnHTML(".olx-ad-card", func(e *colly.HTMLElement) {
 		ads = append(ads, OLXAd{
-			Title: e.ChildText(".olx-ad-card__title"),
-			Price: e.ChildText(".olx-ad-card__price"),
+			Title:    e.ChildText(".olx-ad-card__title"),
+			Price:    e.ChildText(".olx-ad-card__price"),
 			Location: e.ChildTexts(".olx-ad-card__location-date-container>p")[0],
-			Image: e.ChildAttr(`source[type="image/jpeg"]`, "srcset"),
+			Image:    e.ChildAttr(`source[type="image/jpeg"]`, "srcset"),
 		})
 	})
 
@@ -172,7 +172,7 @@ func main() {
 		for range ticker.C {
 			log.Printf("fetching olx page\n")
 
-            ads, err := randomPage()
+			ads, err := randomPage()
 			if err != nil {
 				log.Printf("could not fetch ads: %v\n", err)
 				continue
@@ -197,7 +197,7 @@ func main() {
 
 			log.Printf("Successfully fetched ads.")
 		}
-	 }()
+	}()
 
-	select{}
+	select {}
 }
