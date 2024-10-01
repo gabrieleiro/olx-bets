@@ -149,6 +149,9 @@ var (
 			guilds[guildId].gameChannelId = &channelInt
 			respondInteractionWithEmbed(s, i, "Canal do bot configurado!")
 		},
+		"ajuda": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			respondInteractionWithEmbed(s, i, "Tente adivinhar o preço de anúncios da OLX! Use o comando /canal para configurar o canal do bot. Ele só enviará mensagens nesse canal e só lerá as mensagens de lá. Use /anuncio para ver a rodada atual. ")
+		},
 		"comandos": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
