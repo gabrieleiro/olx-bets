@@ -20,6 +20,7 @@ import (
 type OLXAd struct {
 	Id       int
 	Title    string
+	Image    string
 	Price    int
 	Location string
 }
@@ -172,8 +173,6 @@ var (
 	}
 )
 
-
-
 func newAd(guildId int) error {
 	var ad OLXAd
 
@@ -197,6 +196,7 @@ func newAd(guildId int) error {
 		SELECT
 			ads.id,
 			ads.title,
+			ads.image,
 			ads.price,
 			ads.location
 		FROM
@@ -206,7 +206,7 @@ func newAd(guildId int) error {
 		LIMIT 1;
 	`)
 
-	err = row.Scan(&ad.Id, &ad.Title, &ad.Price, &ad.Location)
+	err = row.Scan(&ad.Id, &ad.Title, &ad.Image, &ad.Price, &ad.Location)
 	if err != nil {
 		return err
 	}
@@ -231,9 +231,12 @@ func newAd(guildId int) error {
 }
 
 func adEmbed(ad OLXAd) discordgo.MessageEmbed {
-	return discordgo.MessageEmbed {
-		Title: ad.Title,
+	return discordgo.MessageEmbed{
+		Title:       ad.Title,
 		Description: ad.Location,
+		Image: &discordgo.MessageEmbedImage{
+			URL: ad.Image,
+		},
 	}
 }
 
@@ -420,7 +423,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 func guildCreate(s *discordgo.Session, g *discordgo.GuildCreate) {
 	tx, err := db.BeginTx(context.Background(), nil)
 	if err != nil {
-		log.Printf("could not register guild %s: %v\n",g.ID, err)
+		log.Printf("could not register guild %s: %v\n", g.ID, err)
 		return
 	}
 	defer tx.Rollback()
@@ -432,7 +435,7 @@ func guildCreate(s *discordgo.Session, g *discordgo.GuildCreate) {
 	`, g.ID)
 
 	if err != nil {
-		log.Printf("could not register guild %s: %v\n",g.ID, err)
+		log.Printf("could not register guild %s: %v\n", g.ID, err)
 		return
 	}
 
@@ -474,7 +477,7 @@ func loadGuilds() map[int]*GuildConfig {
 	}
 
 	rows, err := db.Query(`
-		SELECT g.discord_id, g.game_channel_id, ad.id, ad.title, ad.price, ad.location
+		SELECT g.discord_id, g.game_channel_id, ad.id, ad.title, ad.image, ad.price, ad.location
 		FROM rounds r
 		LEFT JOIN olx_ads ad ON r.ad_id = ad.id
 		LEFT JOIN guilds g ON g.discord_id = r.guild_id
@@ -490,10 +493,11 @@ func loadGuilds() map[int]*GuildConfig {
 			game_channel_id int
 			ad_id           int
 			ad_title        string
+			ad_image        string
 			ad_price        int
 			ad_location     string
 		)
-		err := rows.Scan(&guildId, &game_channel_id, &ad_id, &ad_title, &ad_price, &ad_location)
+		err := rows.Scan(&guildId, &game_channel_id, &ad_id, &ad_title, &ad_image, &ad_price, &ad_location)
 		if err != nil {
 			log.Printf("Error loading guild %d: %v\n", guildId, err)
 			continue
@@ -502,6 +506,7 @@ func loadGuilds() map[int]*GuildConfig {
 		guilds[guildId].currentAd = &OLXAd{
 			Id:       ad_id,
 			Title:    ad_title,
+			Image:    ad_image,
 			Price:    ad_price,
 			Location: ad_location,
 		}
