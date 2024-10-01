@@ -27,8 +27,9 @@ type OLXAd struct {
 }
 
 type GuildConfig struct {
-	gameChannelId *int
-	currentAd     *OLXAd
+	gameChannelId  *int
+	currentAd      *OLXAd
+	guessesInRound int
 }
 
 var session *discordgo.Session
@@ -193,6 +194,14 @@ func newAd(guildId int) error {
 		return err
 	}
 
+	_, err = tx.Exec(`
+		DELETE FROM guesses
+		WHERE guild_id = ?`, guildId)
+	if err != nil {
+		log.Printf("could not delete guesses for guild id %d\n", guildId)
+		return err
+	}
+
 	row := tx.QueryRow(`
 		SELECT
 			ads.id,
@@ -227,6 +236,7 @@ func newAd(guildId int) error {
 	}
 
 	guilds[guildId].currentAd = &ad
+	guilds[guildId].guessesInRound = 0
 
 	return nil
 }
@@ -384,7 +394,32 @@ func wasClose(guess int, actual int) bool {
 }
 
 func wayOff(guess int, actual int) bool {
-	return (guess >= (actual * 2)) || guess <= (actual / 2)
+	return (guess >= (actual * 2)) || guess <= (actual/2)
+}
+
+type Guess struct {
+	Id       int
+	GuildId  int
+	Value    int
+	Username string
+}
+
+func closestGuess(guildId int, actual int) (Guess, error) {
+	res := Guess{}
+
+	row := db.QueryRow(`
+		SELECT id, guild_id, value, username
+		FROM (
+			SELECT *, ABS(value-?) AS diff
+			FROM guesses
+			WHERE guild_id = ?
+		)
+		ORDER BY diff
+		LIMIT 1`, actual, guildId)
+
+	err := row.Scan(&res.Id, &res.GuildId, &res.Value, &res.Username)
+
+	return res, err
 }
 
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -415,8 +450,24 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	_, err = db.Exec(`
+		INSERT INTO guesses(guild_id, value, username)
+		VALUES (?, ?, ?)`,
+		guildId, guess, m.Author.Username)
+	guilds[guildId].guessesInRound += 1
+
 	if guess != ad.Price {
-		if wasClose(guess, ad.Price) {
+		guessesInRound := guilds[guildId].guessesInRound
+		if (guessesInRound > 0) && guessesInRound%10 == 0 {
+			closest, err := closestGuess(guildId, ad.Price)
+			if err != nil {
+				log.Printf("sending closest guess message for guild %d: %v", guildId, err)
+				return
+			}
+
+			content := fmt.Sprintf("%s foi quem passou mais perto com R$ %d", closest.Username, closest.Value)
+			sendEmbedInChannel(s, m.ChannelID, m.GuildID, content)
+		} else if wasClose(guess, ad.Price) {
 			sendEmbedInChannel(s, m.ChannelID, m.GuildID, "Passou perto!")
 		} else if wayOff(guess, ad.Price) {
 			sendEmbedInChannel(s, m.ChannelID, m.GuildID, "Muito longe")
@@ -542,6 +593,30 @@ func loadGuilds() map[int]*GuildConfig {
 			Price:    ad_price,
 			Location: ad_location,
 		}
+	}
+
+	guessCount, err := db.Query(`
+		SELECT COUNT(*) as count, guild_id
+		FROM guesses
+		GROUP BY guild_id`)
+	if err != nil {
+		log.Printf("could not load guilds: %v", err)
+	}
+	defer guessCount.Close()
+
+	for guessCount.Next() {
+		var (
+			guildId int
+			count   int
+		)
+
+		err := guessCount.Scan(&count, &guildId)
+		if err != nil {
+			log.Printf("counting guesses for guild: %v", err)
+			continue
+		}
+
+		guilds[guildId].guessesInRound = count
 	}
 
 	return guilds
