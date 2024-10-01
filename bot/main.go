@@ -115,6 +115,7 @@ var (
 			}
 
 			respondInteractionWithEmbed(s, i, "Começando nova rodada!")
+			sendAdInChannel(s, i.ChannelID, i.GuildID, *guilds[guildId].currentAd)
 		},
 		"canal": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			guildId, err := strconv.Atoi(i.GuildID)
@@ -496,10 +497,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 
 		currentAd := guilds[guildId].currentAd
-		s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
-			Title:       "Começando nova rodada",
-			Description: fmt.Sprintf("**%s**\n%s", currentAd.Title, currentAd.Location),
-		})
+		sendEmbedInChannel(s, m.ChannelID, m.GuildID, "Começando nova rodada")
+		sendAdInChannel(s, m.ChannelID, m.GuildID, *currentAd)
 	}
 }
 
