@@ -78,7 +78,9 @@ var (
 		"anuncio": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			guildId, err := strconv.Atoi(i.GuildID)
 			if err != nil {
-				log.Fatalf("could not register command handlers: %v", err)
+				log.Printf("could not parse guild id: %v\n", err)
+				respondInteractionWithEmbed(s, i, "Ops! Algo deu errado")
+				return
 			}
 
 			if guilds[guildId].gameChannelId == nil {
@@ -120,7 +122,9 @@ var (
 		"canal": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			guildId, err := strconv.Atoi(i.GuildID)
 			if err != nil {
-				log.Fatalf("could not register command handlers: %v\n", err)
+				log.Printf("could not parse guild id: %v\n", err)
+				respondInteractionWithEmbed(s, i, "Ops! Algo deu errado")
+				return
 			}
 			options := i.ApplicationCommandData().Options
 
