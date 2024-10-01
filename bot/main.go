@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"os/signal"
 	"reflect"
@@ -80,14 +81,14 @@ var (
 			}
 
 			if guilds[guildId].gameChannelId == nil {
-				sendSimpleEmbed(s, i, "Por favor, configure o canal do bot usando o comando **/canal**")
+				respondInteractionWithEmbed(s, i, "Por favor, configure o canal do bot usando o comando **/canal**")
 			}
 
 			if guilds[guildId].currentAd == nil {
 				err = newAd(guildId)
 				if err != nil {
 					log.Println(err)
-					sendSimpleEmbed(s, i, "Ops! Algo deu errado")
+					respondInteractionWithEmbed(s, i, "Ops! Algo deu errado")
 					return
 				}
 			}
@@ -101,18 +102,18 @@ var (
 			}
 
 			if !reflect.ValueOf(guilds[guildId].gameChannelId).IsValid() {
-				sendSimpleEmbed(s, i, "Por favor, configure o canal do bot usando o comando **/canal**")
+				respondInteractionWithEmbed(s, i, "Por favor, configure o canal do bot usando o comando **/canal**")
 				return
 			}
 
 			err = newAd(guildId)
 			if err != nil {
 				log.Println(err)
-				sendSimpleEmbed(s, i, "Não consegui escolher um anuncio novo :(")
+				respondInteractionWithEmbed(s, i, "Não consegui escolher um anuncio novo :(")
 				return
 			}
 
-			sendSimpleEmbed(s, i, "Começando nova rodada!")
+			respondInteractionWithEmbed(s, i, "Começando nova rodada!")
 		},
 		"canal": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			guildId, err := strconv.Atoi(i.GuildID)
@@ -128,7 +129,7 @@ var (
 			`, options[0].Value, guildId)
 			if err != nil {
 				log.Printf("could not set channel for guild %d: %v\n", guildId, err)
-				sendSimpleEmbed(s, i, "Ops! Algo deu errado")
+				respondInteractionWithEmbed(s, i, "Ops! Algo deu errado")
 				return
 			}
 
@@ -140,7 +141,7 @@ var (
 
 			channelInt := int(channelId)
 			guilds[guildId].gameChannelId = &channelInt
-			sendSimpleEmbed(s, i, "Canal do bot configurado!")
+			respondInteractionWithEmbed(s, i, "Canal do bot configurado!")
 		},
 		"comandos": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -266,8 +267,17 @@ func sendAdInChannel(s *discordgo.Session, channel string, guild string, ad OLXA
 		log.Printf("could not send message in channel %s at server %s", channel, guild)
 	}
 }
+func sendEmbedInChannel(s *discordgo.Session, channel string, guild string, content string) {
+	_, err := s.ChannelMessageSendEmbed(channel, &discordgo.MessageEmbed{
+		Description: content,
+	})
 
-func sendSimpleEmbed(s *discordgo.Session, i *discordgo.InteractionCreate, content string) {
+	if err != nil {
+		log.Printf("could not send message in channel %s at server %s", channel, guild)
+	}
+}
+
+func respondInteractionWithEmbed(s *discordgo.Session, i *discordgo.InteractionCreate, content string) {
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
@@ -365,6 +375,18 @@ func main() {
 	session.Close()
 }
 
+func wasClose(guess int, actual int) bool {
+	mean := (float64(guess) + float64(actual)) / 2
+	diff := math.Abs(float64(guess) - float64(actual))
+	percentDiff := (diff / mean) * 100
+
+	return diff <= 5 || percentDiff <= 5
+}
+
+func wayOff(guess int, actual int) bool {
+	return (guess >= (actual * 2)) || guess <= (actual / 2)
+}
+
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return
@@ -390,6 +412,16 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	guess, err := strconv.Atoi(m.Content)
 	if err != nil {
+		return
+	}
+
+	if guess != ad.Price {
+		if wasClose(guess, ad.Price) {
+			sendEmbedInChannel(s, m.ChannelID, m.GuildID, "Passou perto!")
+		} else if wayOff(guess, ad.Price) {
+			sendEmbedInChannel(s, m.ChannelID, m.GuildID, "Muito longe")
+		}
+
 		return
 	}
 
