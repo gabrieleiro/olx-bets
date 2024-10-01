@@ -1,0 +1,6 @@
+CREATE TABLE scores (
+    id INTEGER PRIMARY KEY,
+    username TEXT NOT NULL,
+    guild_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
+);

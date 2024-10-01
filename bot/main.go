@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"reflect"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
@@ -30,6 +31,18 @@ type GuildConfig struct {
 	gameChannelId  *int
 	currentAd      *OLXAd
 	guessesInRound int
+}
+
+type Score struct {
+	Id int
+	Username string
+	GuildId int
+	CreatedAt string
+}
+
+type AggregatedScore struct {
+	Username string
+	Score 		int
 }
 
 var session *discordgo.Session
@@ -71,6 +84,10 @@ var (
 		{
 			Name:        "comandos",
 			Description: "Lista os comandos disponíveis",
+		},
+		{
+			Name: "ranking",
+			Description: "Veja onde você está no ranking desse servidor.",
 		},
 	}
 
@@ -149,6 +166,50 @@ var (
 			guilds[guildId].gameChannelId = &channelInt
 			respondInteractionWithEmbed(s, i, "Canal do bot configurado!")
 		},
+		"ranking": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			var scores []AggregatedScore
+
+			rows, err := db.Query(`
+				SELECT username, COUNT(*) as score
+				FROM scores
+				WHERE guild_id = ?
+				GROUP BY username
+				ORDER BY COUNT(*) DESC`, i.GuildID)
+			if err != nil {
+				log.Printf("fetching ranking for guild %s: %v\n", i.GuildID, err)
+				respondInteractionWithEmbed(s, i, "Ops! Algo deu errado")
+
+				return
+			}
+
+			defer rows.Close()
+
+			for rows.Next() {
+				sc := AggregatedScore{}
+				err = rows.Scan(&sc.Username, &sc.Score)
+
+				if err != nil {
+					log.Printf("fetching ranking for guild %s: %v\n", i.GuildID, err)
+					respondInteractionWithEmbed(s, i, "Ops! Algo deu errado")
+
+					return
+				}
+
+				scores = append(scores, sc)
+			}
+
+			if len(scores) == 0 {
+				respondInteractionWithEmbed(s, i, "Ninguém marcou pontos ainda")
+				return
+			}
+
+			var rankingString strings.Builder
+			for idx, s := range scores {
+				rankingString.WriteString(fmt.Sprintf("#%d %s(%d)\n", idx+1, s.Username, s.Score))
+			}
+
+			respondInteractionWithEmbed(s, i, rankingString.String())
+		},
 		"ajuda": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			respondInteractionWithEmbed(s, i, "Tente adivinhar o preço de anúncios da OLX! Use o comando /canal para configurar o canal do bot. Ele só enviará mensagens nesse canal e só lerá as mensagens de lá. Use /anuncio para ver a rodada atual. ")
 		},
@@ -168,6 +229,9 @@ var (
 
 							**/canal**
 							Configura em qual canal o bot vai funcionar
+
+							**/ranking**
+							Veja onde você está no ranking desse servidor
 
 							**/ajuda**
 							O que esse bot faz?
@@ -501,6 +565,13 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			})
 
 			return
+		}
+
+		_, err = db.Exec(`
+			INSERT INTO scores (username, guild_id)
+			VALUES (?, ?)`, m.Author.Username, guildId)
+		if err != nil {
+			log.Printf("could not update score for user %s in guild %d: %v\n", m.Author.Username, guildId, err)
 		}
 
 		currentAd := guilds[guildId].currentAd
