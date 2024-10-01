@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS rounds (
+    id INTEGER PRIMARY KEY,
+    guild_id INTEGER NOT NULL,
+    ad_id INTEGER NOT NULL
+);
