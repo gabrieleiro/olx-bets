@@ -376,6 +376,17 @@ func respondInteractionWithEmbed(s *discordgo.Session, i *discordgo.InteractionC
 	}
 }
 
+func respondWithEmbed(s *discordgo.Session, m *discordgo.MessageCreate, content string) {
+	_, err := s.ChannelMessageSendEmbedReply(m.ChannelID, &discordgo.MessageEmbed{
+		Type: discordgo.EmbedTypeRich,
+		Description: content,
+	}, m.Reference())
+
+	if err != nil {
+		log.Printf("could not respond to interaction: %v\n", err)
+	}
+}
+
 func main() {
 	var err error
 	if os.Getenv("ENV") != "production" {
@@ -540,9 +551,9 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			content := fmt.Sprintf("%s foi quem passou mais perto com R$ %d", closest.Username, closest.Value)
 			sendEmbedInChannel(s, m.ChannelID, m.GuildID, content)
 		} else if wasClose(guess, ad.Price) {
-			sendEmbedInChannel(s, m.ChannelID, m.GuildID, "Passou perto!")
+			respondWithEmbed(s, m, "Passou perto!")
 		} else if wayOff(guess, ad.Price) {
-			sendEmbedInChannel(s, m.ChannelID, m.GuildID, "Muito longe")
+			respondWithEmbed(s, m, "Muito longe")
 		}
 
 		return
