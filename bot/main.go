@@ -604,6 +604,8 @@ func guildCreate(s *discordgo.Session, g *discordgo.GuildCreate) {
 		log.Printf("could not register guild %s: %v\n", g.ID, err)
 		return
 	}
+
+	guilds = loadGuilds()
 }
 
 func loadGuilds() map[int]*GuildConfig {
