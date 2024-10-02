@@ -19,6 +19,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+const OLX_MAX_PRICE = 99_999_999
+
 type OLXAd struct {
 	Id       int
 	Title    string
@@ -477,7 +479,7 @@ func wasClose(guess int, actual int) bool {
 }
 
 func wayOff(guess int, actual int) bool {
-	return (guess >= (actual * 2)) || guess <= (actual/2)
+	return (guess >= (actual * 3)) || guess <= (actual/3)
 }
 
 type Guess struct {
@@ -530,6 +532,15 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	guess, err := strconv.Atoi(m.Content)
 	if err != nil {
+		return
+	}
+
+	if guess < 0 {
+		respondWithEmbed(s, m, "Vai tomar no cu, Breno!")
+		return
+	}
+
+	if guess > OLX_MAX_PRICE {
 		return
 	}
 
