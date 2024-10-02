@@ -475,7 +475,7 @@ func wasClose(guess int, actual int) bool {
 	diff := math.Abs(float64(guess) - float64(actual))
 	percentDiff := (diff / mean) * 100
 
-	return diff <= 5 || percentDiff <= 5
+	return diff <= 5 || percentDiff <= 3
 }
 
 func wayOff(guess int, actual int) bool {
