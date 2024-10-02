@@ -544,6 +544,11 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	if ad == nil {
+		log.Printf("guess %d without an ad in guild %d", guess, guildId)
+		return
+	}
+
 	_, err = db.Exec(`
 		INSERT INTO guesses(guild_id, value, username)
 		VALUES (?, ?, ?)`,
