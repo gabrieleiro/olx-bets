@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
@@ -33,18 +34,103 @@ type GuildConfig struct {
 	gameChannelId  *int
 	currentAd      *OLXAd
 	guessesInRound int
+	mu             sync.Mutex
+}
+
+func (gc *GuildConfig) checkGuess(msg *discordgo.MessageCreate, guildId int) {
+	if msg == nil {
+		log.Printf("empty message object for guild %d\n", guildId)
+		return
+	}
+
+	guess, err := strconv.Atoi(msg.Content)
+	if err != nil {
+		return
+	}
+
+	if guess < 0 {
+		respondWithEmbed(msg, "Vai tomar no cu, Breno!")
+		return
+	}
+
+	if guess > OLX_MAX_PRICE {
+		return
+	}
+
+	ad := gc.currentAd
+
+	if ad == nil {
+		log.Printf("guess %d without an ad in guild %d", guess, guildId)
+		return
+	}
+
+	gc.mu.Lock()
+	defer gc.mu.Unlock()
+	_, err = db.Exec(`
+		INSERT INTO guesses(guild_id, value, username)
+		VALUES (?, ?, ?)`,
+		guildId, guess, msg.Author.Username)
+	guilds[guildId].guessesInRound += 1
+
+	if guess != ad.Price {
+		guessesInRound := guilds[guildId].guessesInRound
+		if (guessesInRound > 0) && guessesInRound%10 == 0 {
+			closest, err := closestGuess(guildId, ad.Price)
+			if err != nil {
+				log.Printf("sending closest guess message for guild %d: %v", guildId, err)
+				return
+			}
+
+			content := fmt.Sprintf("%s foi quem passou mais perto com R$ %d", closest.Username, closest.Value)
+			sendEmbedInChannel(msg.ChannelID, msg.GuildID, content)
+		} else if wasClose(guess, ad.Price) {
+			respondWithEmbed(msg, "Passou perto!")
+		} else if wayOff(guess, ad.Price) {
+			respondWithEmbed(msg, "Muito longe")
+		}
+
+		return
+	}
+
+	if guess == ad.Price {
+		_, err = session.ChannelMessageSendEmbed(msg.ChannelID, &discordgo.MessageEmbed{
+			Title:       fmt.Sprintf("%s acertou!", msg.Author.Username),
+			Description: fmt.Sprintf("%s está a venda por R$ %d", ad.Title, ad.Price),
+		})
+
+		if err != nil {
+			log.Printf("Could not send discord message for item found: %v\n", err)
+		}
+
+		err := newAd(guildId)
+		if err != nil {
+			sendEmbedInChannel(msg.ChannelID, msg.GuildID, "Ops! Algo deu errado")
+			return
+		}
+
+		_, err = db.Exec(`
+			INSERT INTO scores (username, guild_id)
+			VALUES (?, ?)`, msg.Author.Username, guildId)
+		if err != nil {
+			log.Printf("could not update score for user %s in guild %d: %v\n", msg.Author.Username, guildId, err)
+		}
+
+		currentAd := guilds[guildId].currentAd
+		sendEmbedInChannel(msg.ChannelID, msg.GuildID, "Começando nova rodada")
+		sendAdInChannel(msg.ChannelID, msg.GuildID, *currentAd)
+	}
 }
 
 type Score struct {
-	Id int
-	Username string
-	GuildId int
+	Id        int
+	Username  string
+	GuildId   int
 	CreatedAt string
 }
 
 type AggregatedScore struct {
 	Username string
-	Score 		int
+	Score    int
 }
 
 var session *discordgo.Session
@@ -88,7 +174,7 @@ var (
 			Description: "Lista os comandos disponíveis",
 		},
 		{
-			Name: "ranking",
+			Name:        "ranking",
 			Description: "Veja onde você está no ranking desse servidor.",
 		},
 	}
@@ -136,7 +222,7 @@ var (
 			}
 
 			respondInteractionWithEmbed(s, i, "Começando nova rodada!")
-			sendAdInChannel(s, i.ChannelID, i.GuildID, *guilds[guildId].currentAd)
+			sendAdInChannel(i.ChannelID, i.GuildID, *guilds[guildId].currentAd)
 		},
 		"canal": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			guildId, err := strconv.Atoi(i.GuildID)
@@ -342,17 +428,17 @@ func respondInteractionWithAd(s *discordgo.Session, i *discordgo.InteractionCrea
 	}
 }
 
-func sendAdInChannel(s *discordgo.Session, channel string, guild string, ad OLXAd) {
+func sendAdInChannel(channel string, guild string, ad OLXAd) {
 	embed := adEmbed(ad)
 
-	_, err := s.ChannelMessageSendEmbed(channel, &embed)
+	_, err := session.ChannelMessageSendEmbed(channel, &embed)
 
 	if err != nil {
 		log.Printf("could not send message in channel %s at server %s", channel, guild)
 	}
 }
-func sendEmbedInChannel(s *discordgo.Session, channel string, guild string, content string) {
-	_, err := s.ChannelMessageSendEmbed(channel, &discordgo.MessageEmbed{
+func sendEmbedInChannel(channel string, guild string, content string) {
+	_, err := session.ChannelMessageSendEmbed(channel, &discordgo.MessageEmbed{
 		Description: content,
 	})
 
@@ -378,9 +464,9 @@ func respondInteractionWithEmbed(s *discordgo.Session, i *discordgo.InteractionC
 	}
 }
 
-func respondWithEmbed(s *discordgo.Session, m *discordgo.MessageCreate, content string) {
-	_, err := s.ChannelMessageSendEmbedReply(m.ChannelID, &discordgo.MessageEmbed{
-		Type: discordgo.EmbedTypeRich,
+func respondWithEmbed(m *discordgo.MessageCreate, content string) {
+	_, err := session.ChannelMessageSendEmbedReply(m.ChannelID, &discordgo.MessageEmbed{
+		Type:        discordgo.EmbedTypeRich,
 		Description: content,
 	}, m.Reference())
 
@@ -528,83 +614,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	ad := guilds[guildId].currentAd
-
-	guess, err := strconv.Atoi(m.Content)
-	if err != nil {
-		return
-	}
-
-	if guess < 0 {
-		respondWithEmbed(s, m, "Vai tomar no cu, Breno!")
-		return
-	}
-
-	if guess > OLX_MAX_PRICE {
-		return
-	}
-
-	if ad == nil {
-		log.Printf("guess %d without an ad in guild %d", guess, guildId)
-		return
-	}
-
-	_, err = db.Exec(`
-		INSERT INTO guesses(guild_id, value, username)
-		VALUES (?, ?, ?)`,
-		guildId, guess, m.Author.Username)
-	guilds[guildId].guessesInRound += 1
-
-	if guess != ad.Price {
-		guessesInRound := guilds[guildId].guessesInRound
-		if (guessesInRound > 0) && guessesInRound%10 == 0 {
-			closest, err := closestGuess(guildId, ad.Price)
-			if err != nil {
-				log.Printf("sending closest guess message for guild %d: %v", guildId, err)
-				return
-			}
-
-			content := fmt.Sprintf("%s foi quem passou mais perto com R$ %d", closest.Username, closest.Value)
-			sendEmbedInChannel(s, m.ChannelID, m.GuildID, content)
-		} else if wasClose(guess, ad.Price) {
-			respondWithEmbed(s, m, "Passou perto!")
-		} else if wayOff(guess, ad.Price) {
-			respondWithEmbed(s, m, "Muito longe")
-		}
-
-		return
-	}
-
-	if guess == ad.Price {
-		_, err = s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
-			Title:       fmt.Sprintf("%s acertou!", m.Author.Username),
-			Description: fmt.Sprintf("%s está a venda por R$ %d", ad.Title, ad.Price),
-		})
-
-		if err != nil {
-			log.Printf("Could not send discord message for item found: %v\n", err)
-		}
-
-		err := newAd(guildId)
-		if err != nil {
-			s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
-				Description: "Ops! Algo deu errado",
-			})
-
-			return
-		}
-
-		_, err = db.Exec(`
-			INSERT INTO scores (username, guild_id)
-			VALUES (?, ?)`, m.Author.Username, guildId)
-		if err != nil {
-			log.Printf("could not update score for user %s in guild %d: %v\n", m.Author.Username, guildId, err)
-		}
-
-		currentAd := guilds[guildId].currentAd
-		sendEmbedInChannel(s, m.ChannelID, m.GuildID, "Começando nova rodada")
-		sendAdInChannel(s, m.ChannelID, m.GuildID, *currentAd)
-	}
+	guilds[guildId].checkGuess(m, guildId)
 }
 
 func guildCreate(s *discordgo.Session, g *discordgo.GuildCreate) {
