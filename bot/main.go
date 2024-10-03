@@ -184,24 +184,24 @@ var (
 			guildId, err := strconv.Atoi(i.GuildID)
 			if err != nil {
 				log.Printf("could not parse guild id: %v\n", err)
-				respondInteractionWithEmbed(s, i, "Ops! Algo deu errado")
+				respondInteractionWithEmbed(i, "Ops! Algo deu errado")
 				return
 			}
 
 			if guilds[guildId].gameChannelId == nil {
-				respondInteractionWithEmbed(s, i, "Por favor, configure o canal do bot usando o comando **/canal**")
+				respondInteractionWithEmbed(i, "Por favor, configure o canal do bot usando o comando **/canal**")
 			}
 
 			if guilds[guildId].currentAd == nil {
 				err = newAd(guildId)
 				if err != nil {
 					log.Println(err)
-					respondInteractionWithEmbed(s, i, "Ops! Algo deu errado")
+					respondInteractionWithEmbed(i, "Ops! Algo deu errado")
 					return
 				}
 			}
 
-			respondInteractionWithAd(s, i, *guilds[guildId].currentAd)
+			go respondInteractionWithAd(s, i, *guilds[guildId].currentAd)
 		},
 		"pular": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			guildId, err := strconv.Atoi(i.GuildID)
@@ -210,25 +210,25 @@ var (
 			}
 
 			if !reflect.ValueOf(guilds[guildId].gameChannelId).IsValid() {
-				respondInteractionWithEmbed(s, i, "Por favor, configure o canal do bot usando o comando **/canal**")
+				go respondInteractionWithEmbed(i, "Por favor, configure o canal do bot usando o comando **/canal**")
 				return
 			}
 
 			err = newAd(guildId)
 			if err != nil {
 				log.Println(err)
-				respondInteractionWithEmbed(s, i, "Não consegui escolher um anuncio novo :(")
+				go respondInteractionWithEmbed(i, "Não consegui escolher um anuncio novo :(")
 				return
 			}
 
-			respondInteractionWithEmbed(s, i, "Começando nova rodada!")
+			go respondInteractionWithEmbed(i, "Começando nova rodada!")
 			sendAdInChannel(i.ChannelID, i.GuildID, *guilds[guildId].currentAd)
 		},
 		"canal": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			guildId, err := strconv.Atoi(i.GuildID)
 			if err != nil {
 				log.Printf("could not parse guild id: %v\n", err)
-				respondInteractionWithEmbed(s, i, "Ops! Algo deu errado")
+				go respondInteractionWithEmbed(i, "Ops! Algo deu errado")
 				return
 			}
 			options := i.ApplicationCommandData().Options
@@ -240,7 +240,7 @@ var (
 			`, options[0].Value, guildId)
 			if err != nil {
 				log.Printf("could not set channel for guild %d: %v\n", guildId, err)
-				respondInteractionWithEmbed(s, i, "Ops! Algo deu errado")
+				go respondInteractionWithEmbed(i, "Ops! Algo deu errado")
 				return
 			}
 
@@ -252,7 +252,7 @@ var (
 
 			channelInt := int(channelId)
 			guilds[guildId].gameChannelId = &channelInt
-			respondInteractionWithEmbed(s, i, "Canal do bot configurado!")
+			go respondInteractionWithEmbed(i, "Canal do bot configurado!")
 		},
 		"ranking": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			var scores []AggregatedScore
@@ -265,7 +265,7 @@ var (
 				ORDER BY COUNT(*) DESC`, i.GuildID)
 			if err != nil {
 				log.Printf("fetching ranking for guild %s: %v\n", i.GuildID, err)
-				respondInteractionWithEmbed(s, i, "Ops! Algo deu errado")
+				go respondInteractionWithEmbed(i, "Ops! Algo deu errado")
 
 				return
 			}
@@ -278,7 +278,7 @@ var (
 
 				if err != nil {
 					log.Printf("fetching ranking for guild %s: %v\n", i.GuildID, err)
-					respondInteractionWithEmbed(s, i, "Ops! Algo deu errado")
+					go respondInteractionWithEmbed(i, "Ops! Algo deu errado")
 
 					return
 				}
@@ -287,7 +287,7 @@ var (
 			}
 
 			if len(scores) == 0 {
-				respondInteractionWithEmbed(s, i, "Ninguém marcou pontos ainda")
+				go respondInteractionWithEmbed(i, "Ninguém marcou pontos ainda")
 				return
 			}
 
@@ -296,10 +296,10 @@ var (
 				rankingString.WriteString(fmt.Sprintf("#%d %s(%d)\n", idx+1, s.Username, s.Score))
 			}
 
-			respondInteractionWithEmbed(s, i, rankingString.String())
+			go respondInteractionWithEmbed(i, rankingString.String())
 		},
 		"ajuda": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			respondInteractionWithEmbed(s, i, "Tente adivinhar o preço de anúncios da OLX! Use o comando /canal para configurar o canal do bot. Ele só enviará mensagens nesse canal e só lerá as mensagens de lá. Use /anuncio para ver a rodada atual. ")
+			go respondInteractionWithEmbed(i, "Tente adivinhar o preço de anúncios da OLX! Use o comando /canal para configurar o canal do bot. Ele só enviará mensagens nesse canal e só lerá as mensagens de lá. Use /anuncio para ver a rodada atual. ")
 		},
 		"comandos": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -447,8 +447,8 @@ func sendEmbedInChannel(channel string, guild string, content string) {
 	}
 }
 
-func respondInteractionWithEmbed(s *discordgo.Session, i *discordgo.InteractionCreate, content string) {
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+func respondInteractionWithEmbed(i *discordgo.InteractionCreate, content string) {
+	err := session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Embeds: []*discordgo.MessageEmbed{
