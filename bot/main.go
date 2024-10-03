@@ -642,7 +642,13 @@ func guildCreate(s *discordgo.Session, g *discordgo.GuildCreate) {
 		return
 	}
 
-	guilds = loadGuilds()
+	guildId, err := strconv.Atoi(g.ID)
+	if err != nil {
+		log.Printf("parsing guild id %s", g.ID)
+		return
+	}
+
+	guilds[guildId] = &GuildConfig{}
 }
 
 func loadGuilds() map[int]*GuildConfig {
