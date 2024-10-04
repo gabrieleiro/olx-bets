@@ -2,12 +2,12 @@ package main
 
 import (
 	"database/sql"
+	"encoding/binary"
+	"errors"
 	"fmt"
 	"log"
-	"maps"
 	"net/http"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -37,7 +37,37 @@ var urlsToCategories = map[string]string{
 	"https://www.olx.com.br/games":                   "Games",
 	"https://www.olx.com.br/escritorio":              "Escritório",
 }
-var urls = slices.Collect(maps.Keys(urlsToCategories))
+var urls = []string{
+	"https://www.olx.com.br/eletronicos-e-celulares",
+	"https://www.olx.com.br/para-a-sua-casa",
+	"https://www.olx.com.br/eletro",
+	"https://www.olx.com.br/moveis",
+	"https://www.olx.com.br/esportes-e-lazer",
+	"https://www.olx.com.br/musica-e-hobbies",
+	"https://www.olx.com.br/agro-e-industria",
+	"https://www.olx.com.br/moda-e-beleza",
+	"https://www.olx.com.br/artigos-infantis",
+	"https://www.olx.com.br/animais-de-estimacao",
+	"https://www.olx.com.br/cameras-e-drones",
+	"https://www.olx.com.br/games",
+	"https://www.olx.com.br/escritorio",
+}
+
+var categories = []string{
+	"Eletrônicos e Celulares",
+	"Para a Sua Casa",
+	"Eletro",
+	"Móveis",
+	"Esportes e Lazer",
+	"Música e Hobbies",
+	"Agro e Indústria",
+	"Moda e Beleza",
+	"Artigos Infantis",
+	"Animais de Estimação",
+	"Câmeras e Drones",
+	"Games",
+	"Escritório",
+}
 
 type OLXAd struct {
 	Title    string `json:"title"`
@@ -45,6 +75,17 @@ type OLXAd struct {
 	Price    int    `json:"price"`
 	Location string `json:"location"`
 	Category string `json:"category"`
+}
+
+func writeInt(filename string, val int) error {
+	bs := make([]byte, 4)
+	binary.LittleEndian.PutUint16(bs, uint16(val))
+	err := os.WriteFile(filename, bs, 0644)
+	return err
+}
+
+func bytesToInt(b []byte) int {
+	return int(binary.LittleEndian.Uint16(b))
 }
 
 func randomPage(startingUrl int) ([]OLXAd, error) {
@@ -169,7 +210,17 @@ func main() {
 		log.Fatalf("Minimum interval is 10 minutes. Tried to run scraper with interval of %d minutes", interval)
 	}
 
-	var startingCategory int
+	dat, err := os.ReadFile("last_category.int")
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			writeInt("last_category.int", 0)
+
+			dat = make([]byte, 1)
+		} else {
+			log.Fatalf("reading category file: %v", err)
+		}
+	}
+	startingCategory := bytesToInt(dat)
 
 	go func() {
 		ticker := time.NewTicker(time.Duration(interval) * time.Minute)
@@ -186,6 +237,11 @@ func main() {
 			if err != nil {
 				log.Printf("could not fetch ads: %v\n", err)
 				continue
+			}
+
+			err = writeInt("last_category.int", startingCategory)
+			if err != nil {
+				log.Fatalf("writing last_category file: %v", err)
 			}
 
 			if len(ads) == 0 {
