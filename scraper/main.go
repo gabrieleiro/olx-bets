@@ -136,8 +136,12 @@ func randomPage(startingUrl int) ([]OLXAd, error) {
 
 		priceInt, err := strconv.Atoi(price)
 		if err != nil {
-			log.Printf("could not parse price: %s", err)
+			log.Printf("could not parse price: %s\n", err)
 			return
+		}
+
+		if priceInt == 0 {
+			log.Printf("skipping price 0\n")
 		}
 
 		ads = append(ads, OLXAd{
