@@ -103,6 +103,7 @@ func randomPage(startingUrl int) ([]OLXAd, error) {
 		log.Printf("could not create new browser tab\n")
 		return ads, err
 	}
+	defer page.Close()
 
 	if _, err := page.Goto(url); err != nil {
 		log.Printf("could not go to %s\n", url)
