@@ -255,7 +255,7 @@ func main() {
 
 			for _, ad := range ads {
 				insert += "(?, ?, ?, ?, ?),"
-				values = append(values, ad.Title, ad.Price, ad.Image, ad.Location)
+				values = append(values, ad.Title, ad.Price, ad.Image, ad.Location, ad.Category)
 			}
 
 			insert = strings.TrimRight(insert, ",")
