@@ -93,7 +93,7 @@ func (gc *GuildConfig) checkGuess(msg *discordgo.MessageCreate, guildId int) {
 	}
 
 	if guess < 0 {
-		respondWithEmbed(msg, "Vai tomar no cu, Breno!")
+		respondWithEmbed(msg, "🖕 Vai tomar no cu, Breno! 🖕")
 		return
 	}
 
@@ -128,9 +128,9 @@ func (gc *GuildConfig) checkGuess(msg *discordgo.MessageCreate, guildId int) {
 			content := fmt.Sprintf("%s foi quem passou mais perto com R$ %d", closest.Username, closest.Value)
 			sendEmbedInChannel(msg.ChannelID, msg.GuildID, content)
 		} else if wasClose(guess, ad.Price) {
-			respondWithEmbed(msg, "Passou perto!")
+			go respondWithEmbed(msg, "Quase!")
 		} else if wayOff(guess, ad.Price) {
-			respondWithEmbed(msg, "Muito longe")
+			go session.MessageReactionAdd(msg.ChannelID, msg.ID, "🥶")
 		}
 
 		return
@@ -263,7 +263,8 @@ var (
 			}
 
 			if guilds[guildId].gameChannelId == nil {
-				respondInteractionWithEmbed(i, "Por favor, configure o canal do bot usando o comando **/canal**")
+				go respondInteractionWithEmbed(i, "Por favor, configure o canal do bot usando o comando **/canal**")
+				return
 			}
 
 			if guilds[guildId].currentAd == nil {
@@ -842,7 +843,9 @@ func guildCreate(s *discordgo.Session, g *discordgo.GuildCreate) {
 		return
 	}
 
-	guilds[guildId] = &GuildConfig{}
+	if _, ok := guilds[guildId]; !ok {
+		guilds[guildId] = &GuildConfig{}
+	}
 }
 
 func loadGuilds() map[int]*GuildConfig {
@@ -882,7 +885,7 @@ func loadGuilds() map[int]*GuildConfig {
 		LEFT JOIN guilds g ON g.discord_id = r.guild_id
 	`)
 	if err != nil {
-		log.Printf("could not load guilds: %v", err)
+		log.Fatalf("could not load guilds: %v", err)
 	}
 	defer rows.Close()
 
