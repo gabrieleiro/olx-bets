@@ -152,8 +152,8 @@ func randomPage(startingUrl int) ([]OLXAd, error) {
 		log.Printf("Request URL: %s failed with response %v\nError: %v", r.Request.URL, r, err)
 	})
 
-	// c.Visit("file://" + filename)
-	// c.Wait()
+	c.Visit("file://" + filename)
+	c.Wait()
 
 	return ads, err
 }
