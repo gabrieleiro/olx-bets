@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,6 +20,49 @@ import (
 	_ "github.com/tursodatabase/libsql-client-go/libsql"
 	_ "modernc.org/sqlite"
 )
+
+var categories = []string{
+	"Eletrônicos e Celulares",
+	"Para a Sua Casa",
+	"Eletro",
+	"Móveis",
+	"Esportes e Lazer",
+	"Música e Hobbies",
+	"Agro e Indústria",
+	"Moda e Beleza",
+	"Artigos Infantis",
+	"Animais de Estimação",
+	"Câmeras e Drones",
+	"Games",
+	"Escritório",
+}
+
+const ops = "Ops! Algo deu errado"
+
+func removeItems(a []string, b []string) []string {
+	var res []string
+
+	for _, i := range a {
+		if !slices.Contains(b, i) {
+			res = append(res, i)
+		}
+	}
+
+	return res
+}
+
+func stringsToChoices(s []string) []*discordgo.ApplicationCommandOptionChoice {
+	var res []*discordgo.ApplicationCommandOptionChoice
+
+	for _, v := range s {
+		res = append(res, &discordgo.ApplicationCommandOptionChoice{
+			Name: v,
+			Value: v,
+		})
+	}
+
+	return res
+}
 
 const OLX_MAX_PRICE = 99_999_999
 
@@ -177,6 +221,36 @@ var (
 			Name:        "ranking",
 			Description: "Veja onde você está no ranking desse servidor.",
 		},
+		{
+			Name:        "categorias",
+			Description: "As categorias habilitadas no servidor",
+		},
+		{
+			Name:        "ligar_categoria",
+			Description: "Permite que anúncios na categoria selecionada apareçam nas rodadas",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "categoria",
+					Description: "Categoria",
+					Choices: stringsToChoices(categories),
+					Required: true,
+				},
+			},
+		},
+		{
+			Name:        "desligar_categoria",
+			Description: "Remove a categoria selecionada das possíveis opções de anúncios",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "categoria",
+					Description: "Categoria",
+					Choices: stringsToChoices(categories),
+					Required: true,
+				},
+			},
+		},
 	}
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
@@ -298,6 +372,112 @@ var (
 
 			go respondInteractionWithEmbed(i, rankingString.String())
 		},
+		"categorias": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			rows, err := db.Query(`
+				SELECT category
+				FROM disabled_categories
+				WHERE guild_id = ?`, i.GuildID)
+			if err != nil {
+				log.Printf("fetching disabled categories for guild %s: %v\n", i.GuildID, err)
+				go respondInteractionWithEmbed(i, ops)
+				return
+			}
+			defer rows.Close()
+
+			var disabledCategories []string
+
+			for rows.Next() {
+				var c string
+				err = rows.Scan(&c)
+
+				if err != nil {
+					log.Printf("fetching disabled categories for guild %s: %v\n", i.GuildID, err)
+					go respondInteractionWithEmbed(i, ops)
+					return
+				}
+
+				disabledCategories = append(disabledCategories, c)
+			}
+
+			enabledCategories := removeItems(categories, disabledCategories)
+
+			var response strings.Builder
+			for _, v := range enabledCategories {
+				_, err = response.WriteString(fmt.Sprintf("%s 🟢\n", v))
+				if err != nil {
+					log.Printf("fetching disabled categories for guild %s: %v\n", i.GuildID, err)
+					go respondInteractionWithEmbed(i, ops)
+					return
+				}
+			}
+
+			for _, v := range disabledCategories {
+				response.WriteString(fmt.Sprintf("%s: 🔴\n", v))
+				if err != nil {
+					log.Printf("fetching disabled categories for guild %s: %v\n", i.GuildID, err)
+					go respondInteractionWithEmbed(i, ops)
+					return
+				}
+			}
+
+			go respondInteractionWithEmbed(i, response.String())
+		},
+		"ligar_categoria": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			cmdOpts := i.ApplicationCommandData().Options
+			if cmdOpts == nil {
+				log.Printf("enabling category in guild %s: command data is nil\n", i.GuildID)
+				go respondInteractionWithEmbed(i, ops)
+				return
+			}
+
+			category := cmdOpts[0].StringValue()
+
+			if !slices.Contains(categories, category) {
+				log.Printf("enabling category %s which is not part of allowed categories %v\n", category, categories)
+				go respondInteractionWithEmbed(i, ops)
+				return
+			}
+
+			_, err := db.Exec(`
+				DELETE FROM disabled_categories
+				WHERE guild_id = ? AND category = ?`, i.GuildID, category)
+
+			if err != nil {
+				log.Printf("deleting category %s from disabled_categories in guild %s: %v\n", category, i.GuildID, err)
+				go respondInteractionWithEmbed(i, ops)
+				return
+			}
+
+			go respondInteractionWithEmbed(i, fmt.Sprintf("Feito! Anúncios de %s irão aparecer nas próximas rodadas", category))
+		},
+		"desligar_categoria": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			cmdOpts := i.ApplicationCommandData().Options
+			if cmdOpts == nil {
+				log.Printf("disabling category in guild %s: command data is nil\n", i.GuildID)
+				go respondInteractionWithEmbed(i, ops)
+				return
+			}
+
+			category := cmdOpts[0].StringValue()
+
+			if !slices.Contains(categories, category) {
+				log.Printf("disabling category %s which is not part of allowed categories %v\n", category, categories)
+				go respondInteractionWithEmbed(i, ops)
+				return
+			}
+
+			_, err := db.Exec(`
+				INSERT OR IGNORE INTO disabled_categories (guild_id, category)
+				VALUES (?, ?)`, i.GuildID, category)
+
+			if err != nil {
+				log.Printf("inserting guild_id %s and category %s into disabled_categories: %v\n", i.GuildID, category, err)
+				go respondInteractionWithEmbed(i, ops)
+				return
+			}
+
+			go respondInteractionWithEmbed(i, fmt.Sprintf("Feito! Anúncios de %s não aparecerão mais nas próximas rodadas", category))
+		},
 		"ajuda": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			go respondInteractionWithEmbed(i, "Tente adivinhar o preço de anúncios da OLX! Use o comando /canal para configurar o canal do bot. Ele só enviará mensagens nesse canal e só lerá as mensagens de lá. Use /anuncio para ver a rodada atual. ")
 		},
@@ -323,6 +503,15 @@ var (
 
 							**/ajuda**
 							O que esse bot faz?
+
+							**/categorias**
+							Mostra as categorias habilitadas no servidor
+
+							**/ligar_categoria**
+							Permite que anúncios na categoria selecionada apareçam nas rodadas
+
+							**/desligar_categoria**
+							Remove a categoria selecionada das possíveis opções de anúncios
 
 							**/comandos**
 							Os comandos desse bot
@@ -371,10 +560,15 @@ func newAd(guildId int) error {
 			ads.location
 		FROM
 			olx_ads ads
+		WHERE ads.category NOT IN (
+			SELECT category
+			FROM disabled_categories
+			WHERE guild_id = ?
+		)
 		ORDER BY
 			random()
 		LIMIT 1;
-	`)
+	`, guildId)
 
 	err = row.Scan(&ad.Id, &ad.Title, &ad.Image, &ad.Price, &ad.Location)
 	if err != nil {
@@ -505,6 +699,8 @@ func main() {
 		}
 	})
 
+	guilds = loadGuilds()
+
 	session.AddHandler(messageCreate)
 	session.AddHandler(guildCreate)
 
@@ -512,8 +708,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error opening websocket connection: %v", err)
 	}
-
-	guilds = loadGuilds()
 
 	if os.Getenv("ENV") == "development" {
 		devGuildId = os.Getenv("DEV_GUILD")

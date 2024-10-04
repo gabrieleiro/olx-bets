@@ -105,7 +105,8 @@ func randomPage(startingUrl int) ([]OLXAd, error) {
 	}
 	defer page.Close()
 
-	if _, err := page.Goto(url); err != nil {
+	var timeout float64 = 3 * 60_000 // 3 minutes
+	if _, err := page.Goto(url, playwright.PageGotoOptions{Timeout: &timeout}); err != nil {
 		log.Printf("could not go to %s\n", url)
 		return ads, err
 	}
