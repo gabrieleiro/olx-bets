@@ -4,9 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"math/rand"
+	"maps"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -19,61 +20,44 @@ import (
 )
 
 var db *sql.DB
+var browserCtx playwright.BrowserContext
+var ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/109.0"
+var urlsToCategories = map[string]string{
+	"https://www.olx.com.br/eletronicos-e-celulares": "Eletrônicos e Celulares",
+	"https://www.olx.com.br/para-a-sua-casa":         "Para a Sua Casa",
+	"https://www.olx.com.br/eletro":                  "Eletro",
+	"https://www.olx.com.br/moveis":                  "Móveis",
+	"https://www.olx.com.br/esportes-e-lazer":        "Esportes e Lazer",
+	"https://www.olx.com.br/musica-e-hobbies":        "Música e Hobbies",
+	"https://www.olx.com.br/agro-e-industria":        "Agro e Indústria",
+	"https://www.olx.com.br/moda-e-beleza":           "Moda e Beleza",
+	"https://www.olx.com.br/artigos-infantis":        "Artigos Infantis",
+	"https://www.olx.com.br/animais-de-estimacao":    "Animais de Estimação",
+	"https://www.olx.com.br/cameras-e-drones":        "Câmeras e Drones",
+	"https://www.olx.com.br/games":                   "Games",
+	"https://www.olx.com.br/escritorio":              "Escritório",
+}
+var urls = slices.Collect(maps.Keys(urlsToCategories))
 
 type OLXAd struct {
 	Title    string `json:"title"`
 	Image    string `json:"image"`
 	Price    int    `json:"price"`
 	Location string `json:"location"`
+	Category string `json:"category"`
 }
 
-func randomPage() ([]OLXAd, error) {
+func randomPage(startingUrl int) ([]OLXAd, error) {
 	var ads []OLXAd
 
-	urls := []string{
-		"https://www.olx.com.br/eletronicos-e-celulares",
-		"https://www.olx.com.br/para-a-sua-casa",
-		"https://www.olx.com.br/eletro",
-		"https://www.olx.com.br/moveis",
-		"https://www.olx.com.br/esportes-e-lazer",
-		"https://www.olx.com.br/musica-e-hobbies",
-		"https://www.olx.com.br/agro-e-industria",
-		"https://www.olx.com.br/moda-e-beleza",
-		"https://www.olx.com.br/artigos-infantis",
-		"https://www.olx.com.br/animais-de-estimacao",
-		"https://www.olx.com.br/cameras-e-drones",
-		"https://www.olx.com.br/games",
-		"https://www.olx.com.br/escritorio",
-	}
-
-	url := urls[rand.Intn(len(urls))]
-	log.Printf("scraping page %s", url)
+	url := urls[startingUrl]
+	log.Printf("scraping page #%d: %s\n", startingUrl, url)
 
 	now := time.Now()
 
 	filename := fmt.Sprintf("/tmp/olx-%s.html", now)
 
-	ua := "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/109.0"
-
-	pw, err := playwright.Run()
-	if err != nil {
-		log.Printf("could not run playwright\n")
-		return ads, err
-	}
-
-	browser, err := pw.Chromium.Launch()
-	if err != nil {
-		log.Printf("could not launch chromium\n")
-		return ads, err
-	}
-
-	ctx, err := browser.NewContext(playwright.BrowserNewContextOptions{UserAgent: &ua})
-	if err != nil {
-		log.Printf("could not create browser context\n")
-		return ads, err
-	}
-
-	page, err := ctx.NewPage()
+	page, err := browserCtx.NewPage()
 	if err != nil {
 		log.Printf("could not create new browser tab\n")
 		return ads, err
@@ -93,15 +77,6 @@ func randomPage() ([]OLXAd, error) {
 	err = os.WriteFile(filename, []byte(html), 0644)
 	if err != nil {
 		log.Printf("could not write file\n")
-		return ads, err
-	}
-
-	if err = browser.Close(); err != nil {
-		log.Printf("could not close browser\n")
-		return ads, err
-	}
-	if err = pw.Stop(); err != nil {
-		log.Printf("could not stop Playwright\n")
 		return ads, err
 	}
 
@@ -127,6 +102,7 @@ func randomPage() ([]OLXAd, error) {
 			Price:    priceInt,
 			Location: e.ChildTexts(".olx-ad-card__location-date-container>p")[0],
 			Image:    e.ChildAttr(`source[type="image/jpeg"]`, "srcset"),
+			Category: urlsToCategories[url],
 		})
 	})
 
@@ -134,8 +110,8 @@ func randomPage() ([]OLXAd, error) {
 		log.Printf("Request URL: %s failed with response %v\nError: %v", r.Request.URL, r, err)
 	})
 
-	c.Visit("file://" + filename)
-	c.Wait()
+	// c.Visit("file://" + filename)
+	// c.Wait()
 
 	return ads, err
 }
@@ -169,6 +145,23 @@ func main() {
 	if pingErr != nil {
 		log.Fatal(pingErr)
 	}
+
+	pw, err := playwright.Run()
+	if err != nil {
+		log.Fatalf("could not run playwright: %v\n", err)
+	}
+	defer pw.Stop()
+
+	browser, err := pw.Chromium.Launch()
+	if err != nil {
+		log.Fatalf("launching chromium: %v\n", err)
+	}
+
+	browserCtx, err = browser.NewContext(playwright.BrowserNewContextOptions{UserAgent: &ua})
+	if err != nil {
+		log.Fatalf("creating browser context: %v\n", err)
+	}
+
 	var interval int
 	interval, _ = strconv.Atoi(os.Getenv("INTERVAL"))
 
@@ -176,13 +169,20 @@ func main() {
 		log.Fatalf("Minimum interval is 10 minutes. Tried to run scraper with interval of %d minutes", interval)
 	}
 
+	var startingCategory int
+
 	go func() {
 		ticker := time.NewTicker(time.Duration(interval) * time.Minute)
 
 		for range ticker.C {
 			log.Printf("fetching olx page\n")
 
-			ads, err := randomPage()
+			ads, err := randomPage(startingCategory)
+			if startingCategory == len(urls)-1 {
+				startingCategory = 0
+			} else {
+				startingCategory++
+			}
 			if err != nil {
 				log.Printf("could not fetch ads: %v\n", err)
 				continue
@@ -194,10 +194,10 @@ func main() {
 			}
 
 			values := []any{}
-			insert := "INSERT INTO olx_ads (title, price, image, location) VALUES "
+			insert := "INSERT INTO olx_ads (title, price, image, location, category) VALUES "
 
 			for _, ad := range ads {
-				insert += "(?, ?, ?, ?),"
+				insert += "(?, ?, ?, ?, ?),"
 				values = append(values, ad.Title, ad.Price, ad.Image, ad.Location)
 			}
 
