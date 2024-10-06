@@ -63,6 +63,8 @@ func pular(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	RespondInteractionWithEmbed(i, "Começando nova rodada!")
 	SendAdInChannel(i.ChannelID, i.GuildID, game.Ad(guildId))
+
+	game.OpenRound(guildId)
 }
 
 func canal(s *discordgo.Session, i *discordgo.InteractionCreate) {
