@@ -13,25 +13,27 @@ import (
 	"github.com/gabrieleiro/olx-bets/bot/olx"
 )
 
-func guessInMessage(msg *discordgo.MessageCreate) int {
+var ErrNegativeGuess = errors.New("negative guess")
+var ErrGuessTooHigh = errors.New("guess too high")
+func guessInMessage(msg *discordgo.MessageCreate) (int, error) {
 	if msg == nil {
-		return 0
+		return 0, errors.New("no message")
 	}
 
 	guess, err := strconv.Atoi(msg.Content)
 	if err != nil {
-		return 0
+		return 0, err
 	}
 
 	if guess < 0 {
-		return 0
+		return 0, ErrNegativeGuess
 	}
 
 	if guess > olx.OLX_MAX_PRICE {
-		return 0
+		return 0, ErrGuessTooHigh
 	}
 
-	return guess
+	return guess, nil
 }
 
 func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -55,14 +57,13 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	guess := guessInMessage(m)
+	guess, err := guessInMessage(m)
+	if err != nil {
+		if errors.Is(err, ErrNegativeGuess) {
+			RespondWithEmbed(m, "🖕 Vai tomar no cu, Breno! 🖕")
+			return
+		}
 
-	if guess < 0 {
-		RespondWithEmbed(m, "🖕 Vai tomar no cu, Breno! 🖕")
-		return
-	}
-
-	if guess > olx.OLX_MAX_PRICE {
 		return
 	}
 
