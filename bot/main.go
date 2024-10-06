@@ -38,23 +38,23 @@ func main() {
 	session.AddHandler(discord.MessageCreate)
 	session.AddHandler(discord.GuildCreate)
 
-	var devGuildId string
-	if os.Getenv("ENV") == "development" {
-		devGuildId = os.Getenv("DEV_GUILD")
-	} else {
-		devGuildId = ""
-	}
+	// var devGuildId string
+	// if os.Getenv("ENV") == "development" {
+	// 	devGuildId = os.Getenv("DEV_GUILD")
+	// } else {
+	// 	devGuildId = ""
+	// }
 
 	fmt.Println("Adding commands...")
-	registeredCommands := make([]*discordgo.ApplicationCommand, len(discord.Commands))
+	// registeredCommands := make([]*discordgo.ApplicationCommand, len(discord.Commands))
 
-	for i, v := range discord.Commands {
-		cmd, err := session.ApplicationCommandCreate(session.State.User.ID, devGuildId, v)
-		if err != nil {
-			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
-		}
-		registeredCommands[i] = cmd
-	}
+	// for i, v := range discord.Commands {
+	// 	cmd, err := session.ApplicationCommandCreate(session.State.User.ID, devGuildId, v)
+	// 	if err != nil {
+	// 		log.Panicf("Cannot create '%v' command: %v", v.Name, err)
+	// 	}
+	// 	registeredCommands[i] = cmd
+	// }
 
 	session.Identify.Intents = discordgo.IntentsGuildMessages
 
@@ -68,13 +68,13 @@ func main() {
 		session.Close()
 	}
 
-	fmt.Println("Removing commands...")
-	for _, v := range registeredCommands {
-		err := session.ApplicationCommandDelete(session.State.User.ID, devGuildId, v.ID)
-		if err != nil {
-			log.Printf("Cannot delete '%v' command: %v\n", v.Name, err)
-		}
-	}
+	// fmt.Println("Removing commands...")
+	// for _, v := range registeredCommands {
+	// 	err := session.ApplicationCommandDelete(session.State.User.ID, devGuildId, v.ID)
+	// 	if err != nil {
+	// 		log.Printf("Cannot delete '%v' command: %v\n", v.Name, err)
+	// 	}
+	// }
 
 	fmt.Println("Gracefully shutting down")
 	session.Close()

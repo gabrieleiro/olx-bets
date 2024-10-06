@@ -3,6 +3,7 @@ package game
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"log"
 	"math"
 	"sync"
@@ -21,6 +22,7 @@ type Guess struct {
 type Round struct {
 	guessCount int
 	ad         *olx.OLXAd
+	open       bool
 	mu         sync.Mutex
 }
 
@@ -85,6 +87,12 @@ func IsWayOff(guess int, guildId int) bool {
 
 func CheckGuess(user string, guess int, guildId int) (bool, error) {
 	gi := instances[guildId]
+	gi.mu.Lock()
+	defer gi.mu.Unlock()
+
+	if !gi.round.open {
+		return false, errors.New("round is closed")
+	}
 
 	ad := gi.round.ad
 
@@ -93,18 +101,22 @@ func CheckGuess(user string, guess int, guildId int) (bool, error) {
 		return false, nil
 	}
 
-	gi.mu.Lock()
-	defer gi.mu.Unlock()
+	if guess == ad.Price {
+		closeRound(guildId)
+		return true, nil
+	}
 
-	return guess == ad.Price, nil
+	return false, nil
 }
 
-func ScoreFor(user string, guildId int) error {
+func ScoreFor(user string, guildId int) {
 	_, err := db.Conn.Exec(`
 		INSERT INTO scores (username, guild_id)
 		VALUES (?, ?)`, user, guildId)
 
-	return err
+	if err != nil {
+		log.Printf("Updating score for user %s in guild %d: %v\n", user, guildId, err)
+	}
 }
 
 func NewAd(guildId int) error {
@@ -177,7 +189,6 @@ func NewAd(guildId int) error {
 	return nil
 }
 
-
 func NewInstance(guildId int) {
 	if _, ok := instances[guildId]; !ok {
 		instances[guildId] = &GameInstance{}
@@ -185,8 +196,18 @@ func NewInstance(guildId int) {
 }
 
 func setRound(guildId int, ad olx.OLXAd) {
-	instances[guildId].round.ad = &ad
-	instances[guildId].round.guessCount = 0
+	instances[guildId].round = Round{
+		ad:   &ad,
+		open: false,
+	}
+}
+
+func OpenRound(guildId int) {
+	instances[guildId].round.open = true
+}
+
+func closeRound(guildId int) {
+	instances[guildId].round.open = false
 }
 
 func SetChannel(guildId int, channelId int) {
@@ -251,7 +272,7 @@ func LoadGuilds() {
 		channelId := int(game_channel_id.Int64)
 		instances[guildId] = &GameInstance{
 			discordChannelId: &channelId,
-			round: Round{},
+			round:            Round{},
 		}
 	}
 
@@ -313,5 +334,9 @@ func LoadGuilds() {
 		}
 
 		instances[guildId].round.guessCount = count
+	}
+
+	for k := range instances {
+		instances[k].round.open = true
 	}
 }

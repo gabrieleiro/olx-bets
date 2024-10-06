@@ -23,7 +23,6 @@ func guessInMessage(msg *discordgo.MessageCreate) int {
 	}
 
 	if guess < 0 {
-		RespondWithEmbed(msg, "🖕 Vai tomar no cu, Breno! 🖕")
 		return 0
 	}
 
@@ -90,13 +89,12 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
-		err = game.ScoreFor(m.Author.Username, guildId)
-		if err != nil {
-			log.Printf("Updating score for user %s in guild %d: %v\n", m.Author.Username, guildId, err)
-		}
+		go game.ScoreFor(m.Author.Username, guildId)
 
 		SendEmbedInChannel(m.ChannelID, m.GuildID, "Começando nova rodada")
 		SendAdInChannel(m.ChannelID, m.GuildID, game.Ad(guildId))
+
+		game.OpenRound(guildId)
 	}
 
 	guessCount := game.GuessCount(guildId)
