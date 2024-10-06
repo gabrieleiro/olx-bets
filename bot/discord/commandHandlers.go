@@ -32,7 +32,7 @@ func anuncio(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	if !game.HasAd(guildId) {
-		err = game.NewAd(guildId)
+		err = game.NewRound(guildId)
 		if err != nil {
 			log.Println(err)
 			RespondInteractionWithEmbed(i, ops)
@@ -54,7 +54,7 @@ func pular(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	err = game.NewAd(guildId)
+	err = game.NewRound(guildId)
 	if err != nil {
 		log.Println(err)
 		go RespondInteractionWithEmbed(i, "Não consegui escolher um anuncio novo :(")

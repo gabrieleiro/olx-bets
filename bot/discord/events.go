@@ -83,7 +83,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			log.Printf("Could not send discord message for item found: %v\n", err)
 		}
 
-		err = game.NewAd(guildId)
+		err = game.NewRound(guildId)
 		if err != nil {
 			SendEmbedInChannel(m.ChannelID, m.GuildID, ops)
 			return

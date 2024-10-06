@@ -119,7 +119,7 @@ func ScoreFor(user string, guildId int) {
 	}
 }
 
-func NewAd(guildId int) error {
+func NewRound(guildId int) error {
 	var ad olx.OLXAd
 
 	tx, err := db.Conn.BeginTx(context.Background(), nil)
@@ -184,7 +184,10 @@ func NewAd(guildId int) error {
 		return err
 	}
 
-	setRound(guildId, ad)
+	instances[guildId].round = Round{
+		ad:   &ad,
+		open: false,
+	}
 
 	return nil
 }
@@ -192,13 +195,6 @@ func NewAd(guildId int) error {
 func NewInstance(guildId int) {
 	if _, ok := instances[guildId]; !ok {
 		instances[guildId] = &GameInstance{}
-	}
-}
-
-func setRound(guildId int, ad olx.OLXAd) {
-	instances[guildId].round = Round{
-		ad:   &ad,
-		open: false,
 	}
 }
 
