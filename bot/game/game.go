@@ -85,6 +85,8 @@ func IsWayOff(guess int, guildId int) bool {
 	return (guess >= (ad.Price * 3)) || guess <= (ad.Price/3)
 }
 
+var ErrRoundClosed = errors.New("round is closed")
+
 func CheckGuess(user string, guess int, guildId int) (bool, error) {
 	gi := instances[guildId]
 	gi.mu.Lock()

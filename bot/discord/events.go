@@ -2,6 +2,7 @@ package discord
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -67,6 +68,11 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	isRight, err := game.CheckGuess(m.Author.Username, guess, guildId)
 	if err != nil {
+		if errors.Is(err, game.ErrRoundClosed) {
+			log.Printf("round closed\n")
+			return
+		}
+
 		log.Printf("Checking if guess is right: %v\n", err)
 		return
 	}
