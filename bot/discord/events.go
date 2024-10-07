@@ -102,6 +102,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		SendAdInChannel(m.ChannelID, m.GuildID, game.Ad(guildId))
 
 		game.OpenRound(guildId)
+		return
 	}
 
 	guessCount := game.GuessCount(guildId)
@@ -114,6 +115,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		hint := fmt.Sprintf("%s foi quem passou mais perto com R$ %d", closest.Username, closest.Value)
 		SendEmbedInChannel(m.ChannelID, m.GuildID, hint)
+		return
 	}
 
 	isClose, err := game.IsClose(guess, guildId)

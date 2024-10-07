@@ -35,7 +35,7 @@ type GameInstance struct {
 // we use guild ids as keys for this map
 var instances map[int]*GameInstance
 
-func (gi *GameInstance) incrementGuessCount(guildId int, guess string, user string) error {
+func (gi *GameInstance) incrementGuessCount(guildId int, guess int, user string) error {
 	gi.round.mu.Lock()
 	defer gi.round.mu.Unlock()
 
@@ -89,6 +89,7 @@ var ErrRoundClosed = errors.New("round is closed")
 
 func CheckGuess(user string, guess int, guildId int) (bool, error) {
 	gi := instances[guildId]
+	go gi.incrementGuessCount(guildId, guess, user)
 	gi.mu.Lock()
 	defer gi.mu.Unlock()
 
