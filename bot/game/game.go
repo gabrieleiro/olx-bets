@@ -23,7 +23,6 @@ type Round struct {
 	guessCount int
 	ad         *olx.OLXAd
 	open       bool
-	mu         sync.Mutex
 }
 
 type GameInstance struct {
@@ -36,18 +35,17 @@ type GameInstance struct {
 var instances map[int]*GameInstance
 
 func (gi *GameInstance) incrementGuessCount(guildId int, guess int, user string) error {
-	gi.round.mu.Lock()
-	defer gi.round.mu.Unlock()
-
-	_, err := db.Conn.Exec(`
+	go func() {
+		_, err := db.Conn.Exec(`
 		INSERT INTO guesses(guild_id, value, username)
 		VALUES (?, ?, ?)`,
-		guildId, guess, user)
-	if err != nil {
-		return err
-	}
+			guildId, guess, user)
+		if err != nil {
+			log.Printf("registering guess %d from user %s in guild %d: %v\n", guess, user, guildId, err)
+		}
+	}()
 
-	instances[guildId].round.guessCount += 1
+	gi.round.guessCount += 1
 	return nil
 }
 
@@ -89,12 +87,14 @@ var ErrRoundClosed = errors.New("round is closed")
 
 func CheckGuess(user string, guess int, guildId int) (bool, error) {
 	gi := instances[guildId]
-	go gi.incrementGuessCount(guildId, guess, user)
+
 	gi.mu.Lock()
 	defer gi.mu.Unlock()
 
+	gi.incrementGuessCount(guildId, guess, user)
+
 	if !gi.round.open {
-		return false, errors.New("round is closed")
+		return false, ErrRoundClosed
 	}
 
 	ad := gi.round.ad
