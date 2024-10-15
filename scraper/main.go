@@ -235,24 +235,25 @@ func main() {
 			log.Printf("fetching olx page\n")
 
 			ads, err := randomPage(startingCategory)
-			if startingCategory == len(urls)-1 {
-				startingCategory = 0
-			} else {
-				startingCategory++
-			}
 			if err != nil {
 				log.Printf("could not fetch ads: %v\n", err)
 				continue
 			}
 
+			if len(ads) == 0 {
+				log.Printf("no ads found\n")
+				continue
+			}
+
+			if startingCategory == len(urls)-1 {
+				startingCategory = 0
+			} else {
+				startingCategory++
+			}
+
 			err = writeInt("last_category.int", startingCategory)
 			if err != nil {
 				log.Fatalf("writing last_category file: %v", err)
-			}
-
-			if len(ads) == 0 {
-				log.Printf("no ads found")
-				continue
 			}
 
 			values := []any{}
