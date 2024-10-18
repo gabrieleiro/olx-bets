@@ -134,6 +134,10 @@ func randomPage(startingUrl int) ([]OLXAd, error) {
 		price = strings.TrimLeft(price, "R$ ")
 		price = strings.ReplaceAll(price, ".", "")
 
+		if price == "" {
+			return
+		}
+
 		priceInt, err := strconv.Atoi(price)
 		if err != nil {
 			log.Printf("could not parse price: %s\n", err)
