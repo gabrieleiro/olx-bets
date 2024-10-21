@@ -36,6 +36,19 @@ func guessInMessage(msg *discordgo.MessageCreate) (int, error) {
 	return guess, nil
 }
 
+func countZeroes(n int) int {
+	var zeroes int 
+	for n > 0 {
+		if n % 10 == 0 {
+			zeroes++
+		}
+
+		n /= 10
+	}
+
+	return zeroes
+}
+
 func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return
@@ -106,6 +119,19 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	guessCount := game.GuessCount(guildId)
+	if (guessCount == 15) {
+		ad := game.Ad(guildId)
+		zeroes := countZeroes(ad.Price)
+		if zeroes == 0 {
+			go SendEmbedInChannel(m.ChannelID, m.GuildID, "Dica: Não tem nenhum zero no preço desse anúncio")
+		} else if zeroes == 1 {
+			go SendEmbedInChannel(m.ChannelID, m.GuildID, "Dica: Tem um zero no preço desse anúncio")
+		} else {
+			hint := fmt.Sprintf("Dica: Tem %d zeros no preço desse anúncio", zeroes)
+			go SendEmbedInChannel(m.ChannelID, m.GuildID, hint)
+		}
+	}
+
 	if (guessCount > 0) && ((guessCount % 10) == 0) {
 		closest, err := game.ClosestGuess(guildId)
 		if err != nil {
