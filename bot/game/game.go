@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 	"math"
+	"strings"
 	"sync"
 
 	"github.com/gabrieleiro/olx-bets/bot/db"
@@ -23,6 +25,7 @@ type Round struct {
 	guessCount int
 	ad         *olx.OLXAd
 	open       bool
+	samePrice []int
 }
 
 type GameInstance struct {
@@ -338,4 +341,32 @@ func LoadGuilds() {
 	for k := range instances {
 		instances[k].round.open = true
 	}
+}
+
+func SamePrice(guildId int) (string, error) {
+	ad := Ad(guildId)
+	round := instances[guildId].round
+	excludeIds := strings.Trim(fmt.Sprint(append(round.samePrice, ad.Id)), "[]")
+
+	row := db.Conn.QueryRow(`
+		SELECT title, id FROM olx_ads
+		WHERE price = ?
+		AND id NOT IN (?)
+	`, ad.Price, excludeIds)
+
+	var otherItem string
+	var otherItemId int
+	err := row.Scan(&otherItem, &otherItemId)
+
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			log.Printf("fetching item of same price: %v\n", err)
+		}
+
+		return "", err
+	}
+
+	instances[guildId].round.samePrice = append(instances[guildId].round.samePrice, otherItemId)
+
+	return otherItem, nil
 }

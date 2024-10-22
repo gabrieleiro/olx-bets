@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -45,15 +46,22 @@ func main() {
 		devGuildId = ""
 	}
 
-	fmt.Println("Adding commands...")
-	registeredCommands := make([]*discordgo.ApplicationCommand, len(discord.Commands))
+	skipCommands := flag.Bool("skip-commands", false, "skip adding and removing commands")
 
-	for i, v := range discord.Commands {
-		cmd, err := session.ApplicationCommandCreate(session.State.User.ID, devGuildId, v)
-		if err != nil {
-			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
+	flag.Parse()
+
+	var registeredCommands []*discordgo.ApplicationCommand
+	if !*skipCommands {
+		fmt.Println("Adding commands...")
+		registeredCommands = make([]*discordgo.ApplicationCommand, len(discord.Commands))
+
+		for i, v := range discord.Commands {
+			cmd, err := session.ApplicationCommandCreate(session.State.User.ID, devGuildId, v)
+			if err != nil {
+				log.Panicf("Cannot create '%v' command: %v", v.Name, err)
+			}
+			registeredCommands[i] = cmd
 		}
-		registeredCommands[i] = cmd
 	}
 
 	session.Identify.Intents = discordgo.IntentsGuildMessages
@@ -68,11 +76,13 @@ func main() {
 		session.Close()
 	}
 
-	fmt.Println("Removing commands...")
-	for _, v := range registeredCommands {
-		err := session.ApplicationCommandDelete(session.State.User.ID, devGuildId, v.ID)
-		if err != nil {
-			log.Printf("Cannot delete '%v' command: %v\n", v.Name, err)
+	if !*skipCommands {
+		fmt.Println("Removing commands...")
+		for _, v := range registeredCommands {
+			err := session.ApplicationCommandDelete(session.State.User.ID, devGuildId, v.ID)
+			if err != nil {
+				log.Printf("Cannot delete '%v' command: %v\n", v.Name, err)
+			}
 		}
 	}
 

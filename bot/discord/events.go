@@ -134,26 +134,18 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	if (guessCount > 10) {
-		diceRoll := rand.N(100)
+		go func(){
+			diceRoll := rand.N(100)
 
-		if diceRoll <= 5 {
-			ad := game.Ad(guildId)
-			row := db.Conn.QueryRow(`
-				SELECT title FROM olx_ads
-				WHERE price = ?
-				AND id != ?
-			`, ad.Price, ad.Id)
-
-			var otherItem string
-			err := row.Scan(&otherItem)
-
-			if err != nil {
-				log.Printf("fetching item of same price: %v\n", err)
-			} else {
-				hint := fmt.Sprintf("**%s** tem o mesmo preço de **%s**", ad.Title, otherItem)
-				go SendEmbedInChannel(m.ChannelID, m.GuildID, hint)
+			if diceRoll <= 5 {
+				otherItem, err := game.SamePrice(guildId)
+				ad := game.Ad(guildId)
+				if err == nil {
+					hint := fmt.Sprintf("**%s** tem o mesmo preço de **%s**", ad.Title, otherItem)
+					go SendEmbedInChannel(m.ChannelID, m.GuildID, hint)
+				}
 			}
-		}
+		}()
 	}
 
 	if (guessCount > 0) && ((guessCount % 10) == 0) {
