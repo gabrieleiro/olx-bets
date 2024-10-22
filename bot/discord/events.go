@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand/v2"
 	"strconv"
 
 	"github.com/bwmarrin/discordgo"
@@ -100,7 +101,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		})
 
 		if err != nil {
-			log.Printf("Could not send discord message for item found: %v\n", err)
+			log.Printf("sending discord message for item found: %v\n", err)
 		}
 
 		err = game.NewRound(guildId)
@@ -129,6 +130,29 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		} else {
 			hint := fmt.Sprintf("Dica: Tem %d zeros no preço desse anúncio", zeroes)
 			go SendEmbedInChannel(m.ChannelID, m.GuildID, hint)
+		}
+	}
+
+	if (guessCount > 10) {
+		diceRoll := rand.N(100)
+
+		if diceRoll <= 5 {
+			ad := game.Ad(guildId)
+			row := db.Conn.QueryRow(`
+				SELECT title FROM olx_ads
+				WHERE price = ?
+				AND id != ?
+			`, ad.Price, ad.Id)
+
+			var otherItem string
+			err := row.Scan(&otherItem)
+
+			if err != nil {
+				log.Printf("fetching item of same price: %v\n", err)
+			} else {
+				hint := fmt.Sprintf("**%s** tem o mesmo preço de **%s**", ad.Title, otherItem)
+				go SendEmbedInChannel(m.ChannelID, m.GuildID, hint)
+			}
 		}
 	}
 
