@@ -21,11 +21,17 @@ type Guess struct {
 	Username string
 }
 
+type ClosestGuessHint struct {
+	Username string
+	Guess int
+}
+
 type Round struct {
 	guessCount int
 	ad         *olx.OLXAd
 	open       bool
 	samePrice []int
+	ClosestGuess *ClosestGuessHint
 }
 
 type GameInstance struct {
@@ -67,6 +73,11 @@ func ClosestGuess(guildId int) (Guess, error) {
 		LIMIT 1`, ad.Price, guildId)
 
 	err := row.Scan(&res.Id, &res.GuildId, &res.Value, &res.Username)
+
+	instances[guildId].round.ClosestGuess = &ClosestGuessHint{
+		Username: res.Username,
+		Guess: res.Value,
+	}
 
 	return res, err
 }
