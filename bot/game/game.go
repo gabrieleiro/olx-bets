@@ -23,14 +23,14 @@ type Guess struct {
 
 type ClosestGuessHint struct {
 	Username string
-	Guess int
+	Guess    int
 }
 
 type Round struct {
-	guessCount int
-	ad         *olx.OLXAd
-	open       bool
-	samePrice []int
+	guessCount   int
+	ad           *olx.OLXAd
+	open         bool
+	samePrice    []int
 	ClosestGuess *ClosestGuessHint
 }
 
@@ -76,7 +76,7 @@ func ClosestGuess(guildId int) (Guess, error) {
 
 	instances[guildId].round.ClosestGuess = &ClosestGuessHint{
 		Username: res.Username,
-		Guess: res.Value,
+		Guess:    res.Value,
 	}
 
 	return res, err

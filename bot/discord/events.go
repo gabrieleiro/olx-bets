@@ -16,6 +16,7 @@ import (
 
 var ErrNegativeGuess = errors.New("negative guess")
 var ErrGuessTooHigh = errors.New("guess too high")
+
 func guessInMessage(msg *discordgo.MessageCreate) (int, error) {
 	if msg == nil {
 		return 0, errors.New("no message")
@@ -38,9 +39,9 @@ func guessInMessage(msg *discordgo.MessageCreate) (int, error) {
 }
 
 func countZeroes(n int) int {
-	var zeroes int 
+	var zeroes int
 	for n > 0 {
-		if n % 10 == 0 {
+		if n%10 == 0 {
 			zeroes++
 		}
 
@@ -120,7 +121,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	guessCount := game.GuessCount(guildId)
-	if (guessCount == 15) {
+	if guessCount == 15 {
 		ad := game.Ad(guildId)
 		zeroes := countZeroes(ad.Price)
 		if zeroes == 0 {
@@ -133,8 +134,8 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 	}
 
-	if (guessCount > 10) {
-		go func(){
+	if guessCount > 10 {
+		go func() {
 			diceRoll := rand.N(100)
 
 			if diceRoll <= 5 {
