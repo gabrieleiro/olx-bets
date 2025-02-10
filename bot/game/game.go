@@ -278,7 +278,7 @@ func LoadGuilds() {
 		)
 		err := guildRows.Scan(&guildId, &game_channel_id)
 		if err != nil {
-			log.Printf("Error loading guild %d: %v\n", guildId, err)
+			log.Printf("Loading guild %d: %v\n", guildId, err)
 			continue
 		}
 
@@ -303,7 +303,7 @@ func LoadGuilds() {
 	for rows.Next() {
 		var (
 			guildId         int
-			game_channel_id int
+			game_channel_id sql.NullInt64
 			ad_id           int
 			ad_title        string
 			ad_image        string
@@ -312,7 +312,7 @@ func LoadGuilds() {
 		)
 		err := rows.Scan(&guildId, &game_channel_id, &ad_id, &ad_title, &ad_image, &ad_price, &ad_location)
 		if err != nil {
-			log.Printf("Error loading guild %d: %v\n", guildId, err)
+			log.Printf("Loading guild %d: %v\n", guildId, err)
 			continue
 		}
 
