@@ -31,11 +31,12 @@ var urlsToCategories = map[string]string{
 	"https://www.olx.com.br/musica-e-hobbies":        "Música e Hobbies",
 	"https://www.olx.com.br/agro-e-industria":        "Agro e Indústria",
 	// "https://www.olx.com.br/moda-e-beleza":           "Moda e Beleza",
-	"https://www.olx.com.br/artigos-infantis":     "Artigos Infantis",
-	"https://www.olx.com.br/animais-de-estimacao": "Animais de Estimação",
-	"https://www.olx.com.br/cameras-e-drones":     "Câmeras e Drones",
-	"https://www.olx.com.br/games":                "Games",
-	"https://www.olx.com.br/escritorio":           "Escritório",
+	"https://www.olx.com.br/artigos-infantis":                        "Artigos Infantis",
+	"https://www.olx.com.br/animais-de-estimacao":                    "Animais de Estimação",
+	"https://www.olx.com.br/cameras-e-drones":                        "Câmeras e Drones",
+	"https://www.olx.com.br/games":                                   "Games",
+	"https://www.olx.com.br/escritorio":                              "Escritório",
+	"https://www.olx.com.br/autos-e-pecas/carros-vans-e-utilitarios": "Carros, vans e utilitários",
 }
 var urls = []string{
 	"https://www.olx.com.br/eletronicos-e-celulares",
@@ -51,6 +52,7 @@ var urls = []string{
 	"https://www.olx.com.br/cameras-e-drones",
 	"https://www.olx.com.br/games",
 	"https://www.olx.com.br/escritorio",
+	"https://www.olx.com.br/autos-e-pecas/carros-vans-e-utilitarios",
 }
 
 var categories = []string{
@@ -67,6 +69,7 @@ var categories = []string{
 	"Câmeras e Drones",
 	"Games",
 	"Escritório",
+	"Carros, vans e utilitários",
 }
 
 type OLXAd struct {
@@ -86,6 +89,66 @@ func writeInt(filename string, val int) error {
 
 func bytesToInt(b []byte) int {
 	return int(binary.LittleEndian.Uint16(b))
+}
+
+type ScrapingFunction func(e *colly.HTMLElement) *OLXAd
+
+var carsSelector = "[class^=AdCard_root]"
+var generalSelector = ".olx-ad-card"
+
+func scrapeCars(e *colly.HTMLElement) *OLXAd {
+	price := e.ChildText("[class^=AdCard_mediumbody] h3")
+	price = strings.TrimLeft(price, "R$ ")
+	price = strings.ReplaceAll(price, ".", "")
+
+	if price == "" {
+		return nil
+	}
+
+	priceInt, err := strconv.Atoi(price)
+	if err != nil {
+		log.Printf("could not parse price: %s\n", err)
+		return nil
+	}
+
+	if priceInt == 0 {
+		log.Printf("skipping price 0\n")
+		return nil
+	}
+
+	return &OLXAd{
+		Title:    e.ChildText("[class^=AdCard_link]"),
+		Price:    priceInt,
+		Location: e.ChildText("[class^=AdCard_locationdate]"),
+		Image:    e.ChildAttr(`source[type="image/jpeg"]`, "srcset"),
+	}
+}
+
+func scrapeGeneral(e *colly.HTMLElement) *OLXAd {
+	price := e.ChildText(".olx-ad-card__price")
+	price = strings.TrimLeft(price, "R$ ")
+	price = strings.ReplaceAll(price, ".", "")
+
+	if price == "" {
+		return nil
+	}
+
+	priceInt, err := strconv.Atoi(price)
+	if err != nil {
+		log.Printf("could not parse price: %s\n", err)
+		return nil
+	}
+
+	if priceInt == 0 {
+		log.Printf("skipping price 0\n")
+	}
+
+	return &OLXAd{
+		Title:    e.ChildText(".olx-ad-card__title"),
+		Price:    priceInt,
+		Location: e.ChildTexts(".olx-ad-card__location-date-container>p")[0],
+		Image:    e.ChildAttr(`source[type="image/jpeg"]`, "srcset"),
+	}
 }
 
 func randomPage(startingUrl int) ([]OLXAd, error) {
@@ -128,6 +191,26 @@ func randomPage(startingUrl int) ([]OLXAd, error) {
 
 	c := colly.NewCollector()
 	c.WithTransport(t)
+
+	var selector string
+	var function ScrapingFunction
+
+	switch urlsToCategories[url] {
+	case "Carros, vans e utilitários":
+		selector = carsSelector
+		function = scrapeCars
+	default:
+		selector = generalSelector
+		function = scrapeGeneral
+	}
+
+	c.OnHTML(selector, func(e *colly.HTMLElement) {
+		ad := function(e)
+
+		if ad != nil {
+			ads = append(ads, *ad)
+		}
+	})
 
 	c.OnHTML(".olx-ad-card", func(e *colly.HTMLElement) {
 		price := e.ChildText(".olx-ad-card__price")
