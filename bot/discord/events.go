@@ -7,6 +7,8 @@ import (
 	"log"
 	"math/rand/v2"
 	"strconv"
+	"strings"
+	"unicode"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/gabrieleiro/olx-bets/bot/db"
@@ -16,19 +18,50 @@ import (
 
 var ErrNegativeGuess = errors.New("negative guess")
 var ErrGuessTooHigh = errors.New("guess too high")
+var ErrMalformedGuess = errors.New("malformed guess")
 
-func guessInMessage(msg *discordgo.MessageCreate) (int, error) {
+func ParseGuess(msg *discordgo.MessageCreate) (int, error) {
 	if msg == nil {
 		return 0, errors.New("no message")
 	}
 
-	guess, err := strconv.Atoi(msg.Content)
-	if err != nil {
-		return 0, err
+	if strings.HasPrefix(msg.Content, "-") {
+		return 0, ErrNegativeGuess
 	}
 
-	if guess < 0 {
-		return 0, ErrNegativeGuess
+	hasK := false
+	var expandedString strings.Builder
+	for i := 0; i < len(msg.Content); i++ {
+		r := rune(msg.Content[i])
+
+		if !unicode.IsDigit(r) {
+			if r != rune('k') && r != rune('K') {
+				return 0, ErrMalformedGuess
+			} else if hasK {
+				return 0, ErrMalformedGuess
+			} else if i == len(msg.Content)-1 {
+				expandedString.WriteString("000")
+			} else {
+				hasK = true
+			}
+		} else {
+			if hasK {
+				remaining := len(msg.Content) - i
+				if remaining > 3 {
+					return 0, ErrMalformedGuess
+				}
+
+				expandedString.WriteString(fmt.Sprintf("%03s", msg.Content[i:]))
+				break
+			} else {
+				expandedString.WriteRune(r)
+			}
+		}
+	}
+
+	guess, err := strconv.Atoi(expandedString.String())
+	if err != nil {
+		return 0, err
 	}
 
 	if guess > olx.OLX_MAX_PRICE {
@@ -72,7 +105,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	guess, err := guessInMessage(m)
+	guess, err := ParseGuess(m)
 	if err != nil {
 		if errors.Is(err, ErrNegativeGuess) {
 			RespondWithEmbed(m, "🖕 Vai tomar no cu, Breno! 🖕")
