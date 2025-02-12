@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -250,7 +251,65 @@ func randomPage(startingUrl int) ([]OLXAd, error) {
 	return ads, err
 }
 
+func lastCategory() int {
+	dat, err := os.ReadFile("last_category.int")
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			writeInt("last_category.int", 0)
+
+			dat = make([]byte, 1)
+		} else {
+			log.Fatalf("reading category file: %v", err)
+		}
+	}
+
+	return bytesToInt(dat)
+}
+
+func scrape(category int) bool {
+	log.Printf("fetching olx page\n")
+
+	ads, err := randomPage(category)
+	if err != nil {
+		log.Printf("could not fetch ads: %v\n", err)
+		return false
+	}
+
+	if len(ads) == 0 {
+		log.Printf("no ads found\n")
+		return false
+	}
+
+	if err != nil {
+		log.Fatalf("writing last_category file: %v", err)
+	}
+
+	values := []any{}
+	insert := "INSERT INTO olx_ads (title, price, image, location, category) VALUES "
+
+	for _, ad := range ads {
+		insert += "(?, ?, ?, ?, ?),"
+		values = append(values, ad.Title, ad.Price, ad.Image, ad.Location, ad.Category)
+	}
+
+	insert = strings.TrimRight(insert, ",")
+
+	_, err = db.Exec(insert, values...)
+
+	if err != nil {
+		log.Printf("could not insert ads in database. ads: %v\nerror: %v\n", ads, err)
+		return false
+	}
+
+	log.Printf("Successfully fetched ads.")
+	return true
+}
+
 func main() {
+	once := flag.Bool("once", false, "only run scraping once")
+	category := flag.Int("category", -1, "category to scrape if flag 'once' is set")
+	flag.Parse()
+
 	var err error
 	if os.Getenv("ENV") != "production" {
 		err = godotenv.Load()
@@ -303,66 +362,31 @@ func main() {
 		log.Fatalf("Minimum interval is 10 minutes. Tried to run scraper with interval of %d minutes", interval)
 	}
 
-	dat, err := os.ReadFile("last_category.int")
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			writeInt("last_category.int", 0)
+	startingCategory := lastCategory()
 
-			dat = make([]byte, 1)
+	if *once {
+		if *category != -1 {
+			scrape(*category)
 		} else {
-			log.Fatalf("reading category file: %v", err)
+			scrape(startingCategory)
 		}
+	} else {
+		go func() {
+			ticker := time.NewTicker(time.Duration(interval) * time.Minute)
+
+			for range ticker.C {
+				if scrape(startingCategory) {
+					if startingCategory == len(urls)-1 {
+						startingCategory = 0
+					} else {
+						startingCategory++
+					}
+
+					err = writeInt("last_category.int", startingCategory)
+				}
+			}
+		}()
+
+		select {}
 	}
-	startingCategory := bytesToInt(dat)
-
-	go func() {
-		ticker := time.NewTicker(time.Duration(interval) * time.Minute)
-
-		for range ticker.C {
-			log.Printf("fetching olx page\n")
-
-			ads, err := randomPage(startingCategory)
-			if err != nil {
-				log.Printf("could not fetch ads: %v\n", err)
-				continue
-			}
-
-			if len(ads) == 0 {
-				log.Printf("no ads found\n")
-				continue
-			}
-
-			if startingCategory == len(urls)-1 {
-				startingCategory = 0
-			} else {
-				startingCategory++
-			}
-
-			err = writeInt("last_category.int", startingCategory)
-			if err != nil {
-				log.Fatalf("writing last_category file: %v", err)
-			}
-
-			values := []any{}
-			insert := "INSERT INTO olx_ads (title, price, image, location, category) VALUES "
-
-			for _, ad := range ads {
-				insert += "(?, ?, ?, ?, ?),"
-				values = append(values, ad.Title, ad.Price, ad.Image, ad.Location, ad.Category)
-			}
-
-			insert = strings.TrimRight(insert, ",")
-
-			_, err = db.Exec(insert, values...)
-
-			if err != nil {
-				log.Printf("could not insert ads in database. ads: %v\nerror: %v\n", ads, err)
-				continue
-			}
-
-			log.Printf("Successfully fetched ads.")
-		}
-	}()
-
-	select {}
 }
