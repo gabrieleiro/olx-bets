@@ -16,7 +16,7 @@ var Categories = []string{
 	"Esportes e Lazer",
 	"Música e Hobbies",
 	"Agro e Indústria",
-	"Moda e Beleza",
+	"Roupas",
 	"Artigos Infantis",
 	"Animais de Estimação",
 	"Câmeras e Drones",
