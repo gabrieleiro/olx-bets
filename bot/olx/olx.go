@@ -22,6 +22,7 @@ var Categories = []string{
 	"Câmeras e Drones",
 	"Games",
 	"Escritório",
+	"Carros, vans e utilitários",
 }
 
 const OLX_MAX_PRICE = 99_999_999
