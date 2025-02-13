@@ -215,9 +215,14 @@ func randomPage(startingUrl int) ([]OLXAd, error) {
 	var function ScrapingFunction
 
 	switch urlsToCategories[url] {
+	// sometimes OLX changes their page structure
+	// for cars. I don't know if there's a pattern
+	// for that, so I just keep this switch around
+	// and use the specialized carSelector and scrapeCars
+	// function when that happens.
 	case "Carros, vans e utilitários":
-		selector = carsSelector
-		function = scrapeCars
+		function = scrapeGeneral
+		selector = generalSelector
 	default:
 		selector = generalSelector
 		function = scrapeGeneral
