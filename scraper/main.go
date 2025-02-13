@@ -213,34 +213,6 @@ func randomPage(startingUrl int) ([]OLXAd, error) {
 		}
 	})
 
-	c.OnHTML(".olx-ad-card", func(e *colly.HTMLElement) {
-		price := e.ChildText(".olx-ad-card__price")
-		price = strings.TrimLeft(price, "R$ ")
-		price = strings.ReplaceAll(price, ".", "")
-
-		if price == "" {
-			return
-		}
-
-		priceInt, err := strconv.Atoi(price)
-		if err != nil {
-			log.Printf("could not parse price: %s\n", err)
-			return
-		}
-
-		if priceInt == 0 {
-			log.Printf("skipping price 0\n")
-		}
-
-		ads = append(ads, OLXAd{
-			Title:    e.ChildText(".olx-ad-card__title"),
-			Price:    priceInt,
-			Location: e.ChildTexts(".olx-ad-card__location-date-container>p")[0],
-			Image:    e.ChildAttr(`source[type="image/jpeg"]`, "srcset"),
-			Category: urlsToCategories[url],
-		})
-	})
-
 	c.OnError(func(r *colly.Response, err error) {
 		log.Printf("Request URL: %s failed with response %v\nError: %v", r.Request.URL, r, err)
 	})
