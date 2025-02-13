@@ -296,7 +296,7 @@ func scrape(category int) bool {
 		return false
 	}
 
-	log.Printf("Successfully fetched ads.")
+	log.Printf("Successfully fetched ads.\nTotal: %d", len(ads))
 	return true
 }
 
