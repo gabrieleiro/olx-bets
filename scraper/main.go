@@ -144,11 +144,29 @@ func scrapeGeneral(e *colly.HTMLElement) *OLXAd {
 		log.Printf("skipping price 0\n")
 	}
 
+	title := e.ChildText(".olx-ad-card__title")
+	if title == "" {
+		log.Printf("skipping missing title\n")
+		return nil
+	}
+
+	location := e.ChildText(".olx-ad-card__location-date-container>p")
+	if location == "" {
+		log.Printf("skipping missing location\n")
+		return nil
+	}
+
+	image := e.ChildAttr(`source[type="image/jpeg"]`, "srcset")
+	if image == "" {
+		log.Printf("skipping missing image\n")
+		return nil
+	}
+
 	return &OLXAd{
-		Title:    e.ChildText(".olx-ad-card__title"),
+		Title:    title,
 		Price:    priceInt,
-		Location: e.ChildTexts(".olx-ad-card__location-date-container>p")[0],
-		Image:    e.ChildAttr(`source[type="image/jpeg"]`, "srcset"),
+		Location: location,
+		Image:    image,
 	}
 }
 
