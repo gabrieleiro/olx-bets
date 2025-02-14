@@ -151,11 +151,6 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	guess, err := ParseGuess(m)
 	if err != nil {
-		if errors.Is(err, ErrNegativeGuess) {
-			RespondWithEmbed(m, "🖕 Vai tomar no cu, Breno! 🖕")
-			return
-		}
-
 		return
 	}
 
