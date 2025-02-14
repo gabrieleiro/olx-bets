@@ -23,6 +23,16 @@ func TestParseGuess(t *testing.T) {
 		{"20k5", 20_005, false, "Expanding k-in-the-middle"},
 		{"10kk", 0, true, "Double k"},
 		{"10k8k", 0, true, "Double k"},
+		{"  300 ", 300, false, "Spaces"},
+		{"R$1400", 1400, false, "R$"},
+		{"r$1400", 1400, false, "R$"},
+		{"$1400", 1400, false, "$"},
+		{" $1400", 1400, false, "$"},
+		{"100 reais", 100, false, "reais"},
+		{"100 Reais", 100, false, "Reais"},
+		{"100 reais  ", 100, false, "reais"},
+		{"100 re  ", 0, true, "reais"},
+		{"100 re", 0, true, "reais"},
 	}
 
 	for _, current := range tests {
@@ -33,7 +43,7 @@ func TestParseGuess(t *testing.T) {
 		res, err := ParseGuess(&msg)
 
 		if res != current.Expected {
-			t.Fatalf("%s\nWant: %d\nGot: %d\nInput: ", current.AssertMsg, current.Expected, res, current.Input)
+			t.Fatalf("%s\nWant: %d\nGot: %d\nInput: %s", current.AssertMsg, current.Expected, res, current.Input)
 		}
 
 		if err == nil && current.ExpectedErr {

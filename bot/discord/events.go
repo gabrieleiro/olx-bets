@@ -31,15 +31,53 @@ func ParseGuess(msg *discordgo.MessageCreate) (int, error) {
 
 	hasK := false
 	var expandedString strings.Builder
-	for i := 0; i < len(msg.Content); i++ {
+	last := len(msg.Content) - 1
+	i := 0
+	for msg.Content[i] == ' ' {
+		i++
+	}
+
+	start := i
+
+	for ; i < len(msg.Content); i++ {
 		r := rune(msg.Content[i])
 
 		if !unicode.IsDigit(r) {
-			if r != rune('k') && r != rune('K') {
+			r = unicode.ToLower(r)
+
+			if r == ' ' {
+				continue
+			} else if r == '$' {
+				if i != start {
+					return 0, ErrMalformedGuess
+				}
+
+				continue
+			} else if r == 'r' {
+				if i == last {
+					return 0, ErrMalformedGuess
+				} else if msg.Content[i+1] != '$' {
+					if len(msg.Content) < i+5 {
+						return 0, ErrMalformedGuess
+					}
+
+					rest := strings.ToLower(msg.Content[i : i+5])
+					if rest == "reais" {
+						break
+					} else {
+						return 0, ErrMalformedGuess
+					}
+				} else {
+					// next char is $. We skip it
+					// and parse the numbers
+					i++
+					continue
+				}
+			} else if r != 'k' {
 				return 0, ErrMalformedGuess
 			} else if hasK {
 				return 0, ErrMalformedGuess
-			} else if i == len(msg.Content)-1 {
+			} else if i == last {
 				expandedString.WriteString("000")
 			} else {
 				hasK = true
