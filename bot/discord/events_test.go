@@ -33,6 +33,8 @@ func TestParseGuess(t *testing.T) {
 		{"100 reais  ", 100, false, "reais"},
 		{"100 re  ", 0, true, "reais"},
 		{"100 re", 0, true, "reais"},
+		{"-100", 0, true, "negative guess"},
+		{"9999999999999999", 0, true, "long input"},
 	}
 
 	for _, current := range tests {

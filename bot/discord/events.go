@@ -25,6 +25,10 @@ func ParseGuess(msg *discordgo.MessageCreate) (int, error) {
 		return 0, errors.New("no message")
 	}
 
+	if len(msg.Content) > 30 {
+		return 0, errors.New("input too long")
+	}
+
 	if strings.HasPrefix(msg.Content, "-") {
 		return 0, ErrNegativeGuess
 	}
@@ -33,6 +37,8 @@ func ParseGuess(msg *discordgo.MessageCreate) (int, error) {
 	var expandedString strings.Builder
 	last := len(msg.Content) - 1
 	i := 0
+
+	// skip all initial whitespace
 	for msg.Content[i] == ' ' {
 		i++
 	}
