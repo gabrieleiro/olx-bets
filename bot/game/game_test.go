@@ -107,6 +107,11 @@ func TestLoadGuilds(t *testing.T) {
 					v, k.Expected.discordChannelId, g.discordChannelId)
 			}
 
+			if g.round.guessCount != k.Expected.round.guessCount {
+				t.Fatalf("mismatch guess count for instance %d\n  Want: %d\n  Got: %d\n",
+					v, g.round.guessCount, k.Expected.round.guessCount)
+			}
+
 			actualAd := g.round.ad
 			expectedAd := k.Expected.round.ad
 
