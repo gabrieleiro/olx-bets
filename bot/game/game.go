@@ -330,7 +330,7 @@ func LoadGuilds() {
 		FROM guesses
 		GROUP BY guild_id`)
 	if err != nil {
-		log.Printf("could not load guilds: %v", err)
+		log.Printf("could not load guilds: %v\n", err)
 	}
 	defer guessCount.Close()
 
@@ -342,7 +342,7 @@ func LoadGuilds() {
 
 		err := guessCount.Scan(&count, &guildId)
 		if err != nil {
-			log.Printf("counting guesses for guild: %v", err)
+			log.Printf("counting guesses for guild: %v\n", err)
 			continue
 		}
 

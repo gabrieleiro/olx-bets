@@ -11,9 +11,16 @@ import (
 
 var Conn *sql.DB
 
-func Connect() {
+func Connect(dbURL string) {
+	var dbtype string
+	if os.Getenv("ENV") == "test" {
+		dbtype = "sqlite"
+		dbURL = ""
+	} else {
+		dbtype = "libsql"
+	}
 	var err error
-	Conn, err = sql.Open("libsql", os.Getenv("DB_URL"))
+	Conn, err = sql.Open(dbtype, dbURL)
 	if err != nil {
 		log.Fatalf("opening db: %v", err)
 	}
