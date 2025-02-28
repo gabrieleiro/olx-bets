@@ -36,7 +36,7 @@ type Round struct {
 
 type GameInstance struct {
 	mu               sync.Mutex
-	discordChannelId *int
+	discordChannelId int
 	round            Round
 }
 
@@ -224,11 +224,11 @@ func closeRound(guildId int) {
 }
 
 func SetChannel(guildId int, channelId int) {
-	instances[guildId].discordChannelId = &channelId
+	instances[guildId].discordChannelId = channelId
 }
 
 func InstanceChannel(guildId int) int {
-	return *instances[guildId].discordChannelId
+	return instances[guildId].discordChannelId
 }
 
 func Ad(guildId int) olx.OLXAd {
@@ -246,7 +246,7 @@ func IsChannelSet(guildId int) bool {
 		return false
 	}
 
-	return instance.discordChannelId != nil
+	return instance.discordChannelId != 0
 }
 
 func HasAd(guildId int) bool {
@@ -284,7 +284,7 @@ func LoadGuilds() {
 
 		channelId := int(game_channel_id.Int64)
 		instances[guildId] = &GameInstance{
-			discordChannelId: &channelId,
+			discordChannelId: channelId,
 			round:            Round{},
 		}
 	}
