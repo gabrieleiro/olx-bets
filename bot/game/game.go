@@ -350,7 +350,9 @@ func LoadGuilds() {
 	}
 
 	for k := range instances {
-		instances[k].round.open = true
+		if instances[k].round.ad != nil {
+			instances[k].round.open = true
+		}
 	}
 }
 
