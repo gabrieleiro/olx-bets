@@ -36,7 +36,7 @@ type Round struct {
 
 type GameInstance struct {
 	mu               sync.Mutex
-	discordChannelId *int
+	discordChannelId int
 	round            Round
 }
 
@@ -224,11 +224,11 @@ func closeRound(guildId int) {
 }
 
 func SetChannel(guildId int, channelId int) {
-	instances[guildId].discordChannelId = &channelId
+	instances[guildId].discordChannelId = channelId
 }
 
 func InstanceChannel(guildId int) int {
-	return *instances[guildId].discordChannelId
+	return instances[guildId].discordChannelId
 }
 
 func Ad(guildId int) olx.OLXAd {
@@ -246,7 +246,7 @@ func IsChannelSet(guildId int) bool {
 		return false
 	}
 
-	return instance.discordChannelId != nil
+	return instance.discordChannelId != 0
 }
 
 func HasAd(guildId int) bool {
@@ -284,7 +284,7 @@ func LoadGuilds() {
 
 		channelId := int(game_channel_id.Int64)
 		instances[guildId] = &GameInstance{
-			discordChannelId: &channelId,
+			discordChannelId: channelId,
 			round:            Round{},
 		}
 	}
@@ -330,7 +330,7 @@ func LoadGuilds() {
 		FROM guesses
 		GROUP BY guild_id`)
 	if err != nil {
-		log.Printf("could not load guilds: %v", err)
+		log.Printf("could not load guilds: %v\n", err)
 	}
 	defer guessCount.Close()
 
@@ -342,7 +342,7 @@ func LoadGuilds() {
 
 		err := guessCount.Scan(&count, &guildId)
 		if err != nil {
-			log.Printf("counting guesses for guild: %v", err)
+			log.Printf("counting guesses for guild: %v\n", err)
 			continue
 		}
 
@@ -350,7 +350,9 @@ func LoadGuilds() {
 	}
 
 	for k := range instances {
-		instances[k].round.open = true
+		if instances[k].round.ad != nil {
+			instances[k].round.open = true
+		}
 	}
 }
 
