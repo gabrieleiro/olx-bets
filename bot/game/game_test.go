@@ -2,7 +2,6 @@ package game
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/gabrieleiro/olx-bets/bot/db"
@@ -10,34 +9,13 @@ import (
 )
 
 func TestLoadGuilds(t *testing.T) {
-	dir, err := os.MkdirTemp("", "test-")
-	if err != nil {
-		t.Fatalf("creating temp directory:\n%v\n", err)
-	}
-
-	defer os.RemoveAll(dir)
-	fn := filepath.Join(dir, "db")
-	db.Connect("file://" + fn)
-
-	entries, err := os.ReadDir("../../migrations")
-	if err != nil {
-		t.Fatalf("reading migrations directory:\n%v\n", err)
-	}
-
-	for _, e := range entries {
-		sql, err := os.ReadFile("../../migrations/" + e.Name())
-		if err != nil {
-			t.Fatalf("reading migration file %s:\n%v\n", e.Name(), err)
-		}
-
-		db.Conn.Query(string(sql))
-	}
-
+	t.Setenv("ENV", "test")
 	populateGuilds, err := os.ReadFile("../fixtures/load_guilds.sql")
 	if err != nil {
 		t.Fatalf("reading sql file for populating guilds:\n%v\n", err)
 	}
 
+	db.Connect()
 	_, err = db.Conn.Exec(string(populateGuilds))
 	if err != nil {
 		t.Fatalf("running sql for populating guilds:\n%v\n", err)

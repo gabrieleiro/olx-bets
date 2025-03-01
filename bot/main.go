@@ -25,7 +25,7 @@ func main() {
 		}
 	}
 
-	db.Connect(os.Getenv("DB_URL"))
+	db.Connect()
 	game.LoadGuilds()
 
 	session := discord.Session()
