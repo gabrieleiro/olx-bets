@@ -252,7 +252,7 @@ func desligarCategoria(s *discordgo.Session, i *discordgo.InteractionCreate) {
 }
 
 func ajuda(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	RespondInteractionWithEmbed(i, "Tente adivinhar o preço de anúncios da OLX! Use o comando /canal para configurar o canal do bot. Ele só enviará mensagens nesse canal e só lerá as mensagens de lá. Use /anuncio para ver a rodada atual. ")
+	RespondInteractionWithEmbed(i, "Tente adivinhar o preço de anúncios da OLX! Use o comando /canal para configurar o canal do bot. Ele só enviará mensagens nesse canal e só lerá as mensagens de lá. Use /anuncio para ver a rodada atual. Se o bot reagir a sua mensagem com um 🥶, significa que seu chute foi frio. Ele também avisará quando o chute passar perto, mas se não tiver nem perto nem frio nada vai acontecer. Não tenha medo de spammar! Quantos mais chutes errados, mais dicas ele dará. Para ver todos os comandos, use /comandos")
 }
 
 func comandos(s *discordgo.Session, i *discordgo.InteractionCreate) {
