@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -52,7 +51,7 @@ func main() {
 
 	var registeredCommands []*discordgo.ApplicationCommand
 	if !*skipCommands {
-		fmt.Println("Adding commands...")
+		log.Println("Adding commands...")
 		registeredCommands = make([]*discordgo.ApplicationCommand, len(discord.Commands))
 
 		for i, v := range discord.Commands {
@@ -66,18 +65,18 @@ func main() {
 
 	session.Identify.Intents = discordgo.IntentsGuildMessages
 
-	fmt.Println("Bot is running")
+	log.Println("Bot is running")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
 
 	if os.Getenv("ENV") != "development" {
-		fmt.Println("Gracefully shutting down")
+		log.Println("Gracefully shutting down")
 		session.Close()
 	}
 
 	if !*skipCommands {
-		fmt.Println("Removing commands...")
+		log.Println("Removing commands...")
 		for _, v := range registeredCommands {
 			err := session.ApplicationCommandDelete(session.State.User.ID, devGuildId, v.ID)
 			if err != nil {
@@ -86,6 +85,6 @@ func main() {
 		}
 	}
 
-	fmt.Println("Gracefully shutting down")
+	log.Println("Gracefully shutting down")
 	session.Close()
 }
