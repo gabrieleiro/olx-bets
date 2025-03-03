@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/gabrieleiro/olx-bets/bot/db"
 	"github.com/gabrieleiro/olx-bets/bot/game"
 	"github.com/gabrieleiro/olx-bets/bot/olx"
-	"github.com/gabrieleiro/olx-bets/bot/db"
 )
 
 type AggregatedScore struct {
@@ -173,7 +173,7 @@ func categorias(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	var response strings.Builder
 	for _, v := range enabledCategories {
-		_, err = response.WriteString(fmt.Sprintf("%s 🟢\n", v))
+		_, err = response.WriteString(fmt.Sprintf("🟢 %s\n", v))
 		if err != nil {
 			log.Printf("fetching disabled categories for guild %s: %v\n", i.GuildID, err)
 			go RespondInteractionWithEmbed(i, ops)
@@ -182,7 +182,7 @@ func categorias(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	for _, v := range disabledCategories {
-		response.WriteString(fmt.Sprintf("%s: 🔴\n", v))
+		response.WriteString(fmt.Sprintf("🔴 %s\n", v))
 		if err != nil {
 			log.Printf("fetching disabled categories for guild %s: %v\n", i.GuildID, err)
 			go RespondInteractionWithEmbed(i, ops)
@@ -297,13 +297,13 @@ Os comandos desse bot
 }
 
 var Handlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"anuncio": anuncio,
-	"pular": pular,
-	"canal": canal,
-	"ranking": ranking,
-	"categorias": categorias,
-	"ligar_categoria": ligarCategoria,
+	"anuncio":            anuncio,
+	"pular":              pular,
+	"canal":              canal,
+	"ranking":            ranking,
+	"categorias":         categorias,
+	"ligar_categoria":    ligarCategoria,
 	"desligar_categoria": desligarCategoria,
-	"ajuda": ajuda,
-	"comandos": comandos,
+	"ajuda":              ajuda,
+	"comandos":           comandos,
 }
